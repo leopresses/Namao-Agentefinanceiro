@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { HelpCircle, X } from 'lucide-react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export default function HelpModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const isDesktop = useMediaQuery('(min-width: 768px)');
 
   useEffect(() => {
     const hasSeenHelp = localStorage.getItem('namao_has_seen_help');
@@ -18,8 +20,10 @@ export default function HelpModal() {
         onClick={() => setIsOpen(true)}
         style={{
           position: 'fixed',
-          top: '20px',
-          right: '20px',
+          top: isDesktop ? 'auto' : '20px',
+          bottom: isDesktop ? '24px' : 'auto',
+          left: isDesktop ? '24px' : 'auto',
+          right: isDesktop ? 'auto' : '20px',
           width: '40px',
           height: '40px',
           borderRadius: '20px',

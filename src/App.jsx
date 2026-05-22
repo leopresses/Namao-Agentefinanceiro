@@ -10,7 +10,9 @@ import Report from './pages/Report';
 import BottomNav from './components/BottomNav';
 import HelpModal from './components/HelpModal';
 import PwaPrompt from './components/PwaPrompt';
+import Sidebar from './components/Sidebar';
 import { DialogProvider } from './contexts/DialogContext';
+import { useMediaQuery } from './hooks/useMediaQuery';
 
 // Componente para proteger rotas
 function RequireAuth({ children }) {
@@ -26,28 +28,42 @@ function RequireAuth({ children }) {
 function App() {
   const location = useLocation();
   const hideNav = location.pathname === '/login';
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+
+  const content = (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      
+      {/* Protected Routes */}
+      <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
+      <Route path="/expense/new" element={<RequireAuth><ExpenseForm /></RequireAuth>} />
+      <Route path="/expense/:id" element={<RequireAuth><ExpenseDetails /></RequireAuth>} />
+      <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+      <Route path="/chat" element={<RequireAuth><ChatAI /></RequireAuth>} />
+      <Route path="/report" element={<RequireAuth><Report /></RequireAuth>} />
+      
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 
   return (
     <DialogProvider>
-      <div className="container">
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          
-          {/* Protected Routes */}
-          <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
-          <Route path="/expense/new" element={<RequireAuth><ExpenseForm /></RequireAuth>} />
-          <Route path="/expense/:id" element={<RequireAuth><ExpenseDetails /></RequireAuth>} />
-          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-          <Route path="/chat" element={<RequireAuth><ChatAI /></RequireAuth>} />
-          <Route path="/report" element={<RequireAuth><Report /></RequireAuth>} />
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        
-        {!hideNav && <BottomNav />}
-        {!hideNav && <HelpModal />}
-        {!hideNav && <PwaPrompt />}
-      </div>
+      {isDesktop && !hideNav ? (
+        <div className="desktop-layout">
+          <Sidebar />
+          <div className="desktop-content">
+            {content}
+          </div>
+        </div>
+      ) : (
+        <div className="mobile-layout">
+          {content}
+          {!hideNav && <BottomNav />}
+        </div>
+      )}
+      
+      {!hideNav && <HelpModal />}
+      {!hideNav && <PwaPrompt />}
     </DialogProvider>
   );
 }
