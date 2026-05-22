@@ -24,6 +24,7 @@ export async function addExpense(expense) {
     return [...list, newExpense];
   });
   
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
   return newExpense;
 }
 
@@ -32,6 +33,7 @@ export async function updateExpense(updatedExpense) {
     const list = val || [];
     return list.map(e => e.id === updatedExpense.id ? updatedExpense : e);
   });
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
   return updatedExpense;
 }
 
@@ -40,6 +42,7 @@ export async function deleteExpense(id) {
     const list = val || [];
     return list.filter(e => e.id !== id);
   });
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function updateExpenseGroupAmount(groupId, newAmount, fromDate) {
@@ -47,15 +50,18 @@ export async function updateExpenseGroupAmount(groupId, newAmount, fromDate) {
     const list = val || [];
     return list.map(e => (e.groupId === groupId && e.date >= fromDate) ? { ...e, amount: newAmount } : e);
   });
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function clearAllExpenses() {
   await set(EXPENSES_KEY, []);
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 // Backup functions
 export async function setExpensesData(data) {
   await set(EXPENSES_KEY, data);
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function exportBackup() {

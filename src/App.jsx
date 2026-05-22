@@ -13,6 +13,40 @@ import PwaPrompt from './components/PwaPrompt';
 import Sidebar from './components/Sidebar';
 import { DialogProvider } from './contexts/DialogContext';
 import { useMediaQuery } from './hooks/useMediaQuery';
+import { useAutoSync } from './hooks/useAutoSync';
+import { Wifi, WifiOff, RefreshCw, Check } from 'lucide-react';
+
+function SyncStatusBadge() {
+  const { isOnline, syncStatus } = useAutoSync();
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '20px',
+      right: isDesktop ? '180px' : '65px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      background: 'var(--glass-bg)',
+      backdropFilter: 'blur(8px)',
+      padding: '8px 12px',
+      borderRadius: '20px',
+      border: '1px solid var(--glass-border)',
+      boxShadow: 'var(--glass-shadow)',
+      zIndex: 1000,
+      fontSize: '0.75rem',
+      fontWeight: '600',
+      color: isOnline ? 'var(--color-emerald-dark)' : 'var(--text-secondary)'
+    }}>
+      {!isOnline && <><WifiOff size={14} color="var(--color-crimson-primary)" /> Offline</>}
+      {isOnline && syncStatus === 'syncing' && <><RefreshCw size={14} className="spin" color="var(--color-emerald-primary)" /> Salvando...</>}
+      {isOnline && syncStatus === 'success' && <><Check size={14} color="var(--color-emerald-primary)" /> Nuvem OK</>}
+      {isOnline && syncStatus === 'idle' && <><Wifi size={14} /> Online</>}
+      {isOnline && syncStatus === 'error' && <><WifiOff size={14} color="var(--color-crimson-primary)" /> Erro</>}
+    </div>
+  );
+}
 
 // Componente para proteger rotas
 function RequireAuth({ children }) {
@@ -64,6 +98,7 @@ function App() {
       
       {!hideNav && <HelpModal />}
       {!hideNav && <PwaPrompt />}
+      {!hideNav && <SyncStatusBadge />}
     </DialogProvider>
   );
 }
