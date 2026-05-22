@@ -68,8 +68,9 @@ export default function ChatAI() {
         ${currentMonthExpenses.map(e => `- ${e.date}: ${e.description} | R$ ${e.amount} | Tipo: ${e.type} | Status: ${e.status}`).join('\n')}
       `;
 
-      // Requisição segura para o servidor backend local
-      const response = await fetch(`http://${window.location.hostname}:3001/api/chat`, {
+      // Requisição segura para o servidor backend local ou em produção
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://namao-agentefinanceiro.onrender.com/api/chat';
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

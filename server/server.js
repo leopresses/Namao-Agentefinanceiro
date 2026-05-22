@@ -13,7 +13,7 @@ if (!localSecret) {
 }
 
 // Configuração segura de CORS (CWE-942)
-const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://namao-agentefinanceiro.vercel.app'];
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
