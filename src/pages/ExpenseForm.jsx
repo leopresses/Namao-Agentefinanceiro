@@ -67,11 +67,11 @@ export default function ExpenseForm() {
       if (groupId) {
         const updateAll = await showConfirm(
           'Atualizar Parcelas',
-          'Esta é uma conta parcelada/recorrente. Deseja atualizar Categoria, Valor e Descrição de TODAS as parcelas a partir desta data? (Clique em OK para Todas, ou Cancelar para alterar apenas a deste mês).'
+          'Esta é uma conta parcelada/recorrente. Deseja aplicar essa edição para TODAS as parcelas deste grupo (meses passados e futuros)? (Clique em OK para Todas, ou Cancelar para alterar apenas este mês).'
         );
         
         if (updateAll) {
-          await updateExpenseGroup(groupId, { amount: newAmount, category, description }, date);
+          await updateExpenseGroup(groupId, { amount: newAmount, category, description });
         }
       }
 
