@@ -1,64 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginWithGoogle } from '../services/firebase';
 
-// Função auxiliar para gerar um Hash SHA-256 irreversível com Salt (CWE-759)
-async function hashPassword(message, salt) {
-  const msgUint8 = new TextEncoder().encode(message + salt);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
-}
-
-// Gera um salt seguro
-function generateSalt() {
-  const array = new Uint8Array(16);
-  crypto.getRandomValues(array);
-  return Array.from(array).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 export default function Login() {
   const navigate = useNavigate();
-  const [password, setPassword] = useState('');
-  const [isFirstTime, setIsFirstTime] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    const savedPasswordHash = localStorage.getItem('namao_password_hash');
-    if (!savedPasswordHash) {
-      setIsFirstTime(true);
-    }
-  }, []);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (isFirstTime) {
-      if (password.length < 4) {
-        setError('A senha deve ter pelo menos 4 caracteres.');
-        return;
-      }
-      const newSalt = generateSalt();
-      const hashed = await hashPassword(password, newSalt);
-      localStorage.setItem('namao_password_salt', newSalt);
-      localStorage.setItem('namao_password_hash', hashed);
-      localStorage.setItem('namao_auth_token', 'local');
-      navigate('/');
-    } else {
-      const savedPasswordHash = localStorage.getItem('namao_password_hash');
-      const savedSalt = localStorage.getItem('namao_password_salt') || ''; // Tratamento para senhas velhas sem salt
-      const hashedAttempt = await hashPassword(password, savedSalt);
-      if (hashedAttempt === savedPasswordHash) {
-        localStorage.setItem('namao_auth_token', 'local');
-        navigate('/');
-      } else {
-        setError('Senha incorreta.');
-      }
-    }
-  };
 
   const handleGoogleLogin = async () => {
     setError('');
@@ -99,33 +46,10 @@ export default function Login() {
         <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>Seu Agente Financeiro Pessoal</p>
         
         <div style={{ display: 'inline-block', padding: '6px 12px', borderRadius: '16px', background: 'rgba(16,185,129,0.1)', color: 'var(--color-emerald-dark)', fontSize: '0.75rem', fontWeight: '600', marginBottom: '24px' }}>
-          🔒 Acesso Seguro
+          ☁️ Backup em Nuvem Integrado
         </div>
 
-        <form onSubmit={handleLogin}>
-          <div className="input-group">
-            <input 
-              type="password" 
-              placeholder={isFirstTime ? "Crie uma senha de acesso" : "Digite sua senha"} 
-              className="input-field" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required 
-            />
-          </div>
-          
-          {error && <p style={{ color: 'var(--color-crimson-dark)', fontSize: '0.85rem', marginBottom: '16px' }}>{error}</p>}
-          
-          <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-            {isFirstTime ? "Salvar Senha Segura" : "Desbloquear Cofre"}
-          </button>
-        </form>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '20px 0', color: 'var(--text-secondary)' }}>
-          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--glass-border)' }} />
-          <span style={{ fontSize: '0.85rem' }}>OU</span>
-          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--glass-border)' }} />
-        </div>
+        {error && <p style={{ color: 'var(--color-crimson-dark)', fontSize: '0.85rem', marginBottom: '16px' }}>{error}</p>}
 
         <button 
           onClick={handleGoogleLogin} 
@@ -154,10 +78,7 @@ export default function Login() {
         </button>
         
         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '24px', lineHeight: '1.5' }}>
-          {isFirstTime 
-            ? 'Use o Google para salvar seus dados na nuvem, ou crie uma senha local para manter tudo apenas neste dispositivo.'
-            : 'Use o Google para sincronizar seus dados entre dispositivos.'
-          }
+          Use o Google para sincronizar seus dados em tempo real e nunca perder nenhum lançamento.
         </p>
       </div>
     </div>
