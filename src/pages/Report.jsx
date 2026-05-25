@@ -79,6 +79,10 @@ export default function Report() {
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   const changeMonth = (offset) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(currentDate.getMonth() + offset);
+    setCurrentDate(newDate);
+  };
 
   const getReportTitle = () => {
     if (filterMode === 'all') return 'Relatório Geral (Todos os Meses)';
