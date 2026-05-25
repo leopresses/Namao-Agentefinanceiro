@@ -69,17 +69,19 @@ export default function HelpModal() {
         
         <div style={{ color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.6' }}>
           <p style={{ marginBottom: '12px' }}>
-            Bem-vindo ao <strong>NaMão</strong>! Aqui estão algumas dicas de como usar o app:
+            O <strong>NaMão</strong> é o seu Agente Financeiro Pessoal Inteligente. Veja tudo o que você pode fazer:
           </p>
-          <ul style={{ paddingLeft: '20px', marginBottom: '16px' }}>
-            <li style={{ marginBottom: '8px' }}><strong>+ Renda/Despesa:</strong> Use o botão central inferior para adicionar movimentações.</li>
-            <li style={{ marginBottom: '8px' }}><strong>Pendentes:</strong> Despesas criadas como pendentes ficam em vermelho e somam no "Faturas a Pagar". Clique nelas na lista para dar baixa (pagar).</li>
-            <li style={{ marginBottom: '8px' }}><strong>Recorrência:</strong> Ao criar uma despesa, escolha se ela é Única, Parcelada ou Fixa Mensal.</li>
+          <ul style={{ paddingLeft: '20px', marginBottom: '16px', fontSize: '0.85rem' }}>
+            <li style={{ marginBottom: '8px' }}><strong>➕ Lançamentos:</strong> Use o botão central para adicionar Rendas ou Despesas. O Saldo do Mês é atualizado automaticamente (Rendas - Todas as Despesas).</li>
+            <li style={{ marginBottom: '8px' }}><strong>🔄 Recorrência e Parcelas:</strong> Você pode repetir uma conta ativando o "Switch" e escolhendo entre Parcelado ou Fixo.</li>
+            <li style={{ marginBottom: '8px' }}><strong>📅 Planejamento Futuro:</strong> Marque a situação como "Planejado" para anotar gastos futuros. Eles não descontam do seu saldo, mas geram alertas!</li>
+            <li style={{ marginBottom: '8px' }}><strong>☁️ Sincronização e Offline:</strong> O app funciona sem internet. Quando o sinal volta, ele sincroniza tudo com a nuvem do Google de forma automática e invisível.</li>
+            <li style={{ marginBottom: '8px' }}><strong>📊 Relatórios:</strong> Acesse a aba de gráficos para ter uma visão visual e baixar relatórios das suas finanças.</li>
           </ul>
           
-          <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-            <strong>Dúvidas? Fale com a IA!</strong><br />
-            O Agente Inteligente na aba de Chat sabe como o aplicativo funciona. Pergunte a ele qualquer coisa sobre as suas finanças ou sobre como usar o app!
+          <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '0.85rem' }}>
+            <strong>🤖 Inteligência Artificial Integrada</strong><br />
+            Acesse a aba "Chat" para conversar com nosso Agente de IA. Ele lê seus dados financeiros e te dá conselhos personalizados, análises de gastos e tira dúvidas sobre economia!
           </div>
         </div>
         
