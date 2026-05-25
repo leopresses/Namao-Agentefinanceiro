@@ -2,13 +2,28 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
 import { logoutGoogle, saveCloudBackup, loadCloudBackup } from '../services/firebase';
-import { getExpenses, setExpensesData, exportBackup, importBackup, clearAllExpenses } from '../services/db';
+import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
 import { CloudUpload, CloudDownload, LogOut, User } from 'lucide-react';
 
 export default function Profile() {
   const navigate = useNavigate();
   const { showAlert, showConfirm } = useDialog();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastBackup, setLastBackup] = useState(localStorage.getItem('namao_last_sync_time'));
+
+  React.useEffect(() => {
+    const handleSyncCompleted = () => {
+      setLastBackup(localStorage.getItem('namao_last_sync_time'));
+    };
+    window.addEventListener('namao_sync_completed', handleSyncCompleted);
+    return () => window.removeEventListener('namao_sync_completed', handleSyncCompleted);
+  }, []);
+
+  const formatTime = (isoString) => {
+    if (!isoString) return 'Nunca';
+    const d = new Date(isoString);
+    return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  };
 
   const authMethod = localStorage.getItem('namao_auth_token');
   const isGoogle = authMethod === 'google';
@@ -70,28 +85,7 @@ export default function Profile() {
     }
   };
 
-  const handleExportData = async () => {
-    try {
-      await exportBackup();
-      showAlert('Sucesso', 'Arquivo de backup exportado com sucesso!');
-    } catch (err) {
-      console.error(err);
-      showAlert('Erro', 'Ocorreu um erro ao exportar o backup.');
-    }
-  };
-
-  const handleImportData = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      await importBackup(file);
-      showAlert('Sucesso', 'Backup restaurado com sucesso!');
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err) {
-      console.error(err);
-      showAlert('Erro', 'Ocorreu um erro ao importar o backup. Verifique se o arquivo é válido.');
-    }
-  };
+// Funções antigas de JSON removidas
 
   return (
     <div style={{ paddingBottom: '80px' }} className="animate-fade-up">
@@ -130,8 +124,11 @@ export default function Profile() {
           <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             ☁️ Sincronização em Nuvem
           </h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
             Mantenha seus dados seguros na nuvem do Google. Ideal para trocar de celular sem perder nada.
+          </p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--color-emerald-primary)', fontWeight: '600', marginBottom: '24px' }}>
+            Último backup: {formatTime(lastBackup)}
           </p>
 
           <button 
@@ -160,26 +157,7 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Backup Local */}
-      <div className="glass-card" style={{ marginBottom: '24px' }}>
-        <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)' }}>📁 Backup Local (JSON)</h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-          Exporte seus dados em JSON para guardar um backup manual, ou importe um arquivo JSON para restaurar.
-        </p>
 
-        <button onClick={handleExportData} className="btn-primary" style={{ width: '100%', marginBottom: '16px', background: 'var(--text-primary)' }}>
-          Exportar Dados
-        </button>
-
-        <label style={{
-          display: 'block', width: '100%', padding: '16px', textAlign: 'center',
-          background: 'rgba(15, 23, 42, 0.05)', color: 'var(--text-primary)', borderRadius: '16px',
-          cursor: 'pointer', fontWeight: '600', border: '1px dashed rgba(15, 23, 42, 0.2)'
-        }}>
-          Importar Dados
-          <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleImportData} />
-        </label>
-      </div>
 
 
 

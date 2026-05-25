@@ -18,6 +18,10 @@ export function useAutoSync() {
       await saveCloudBackup(userUid, data);
       localStorage.setItem('namao_pending_sync', 'false');
       
+      const now = new Date().toISOString();
+      localStorage.setItem('namao_last_sync_time', now);
+      window.dispatchEvent(new CustomEvent('namao_sync_completed'));
+      
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000); // Volta ao normal após 3 segundos
     } catch (error) {
@@ -51,10 +55,27 @@ export function useAutoSync() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('namao_data_changed', handleDataChanged);
 
-    // Na inicialização, tenta sincronizar se tiver algo pendente
-    if (navigator.onLine && localStorage.getItem('namao_pending_sync') === 'true') {
-      doSync();
-    }
+    // Na inicialização, tenta sincronizar se tiver algo pendente ou se for o backup diário preventivo
+    const checkInitialSync = () => {
+      if (!navigator.onLine) return;
+      
+      let needsDailySync = true;
+      const lastSyncStr = localStorage.getItem('namao_last_sync_time');
+      if (lastSyncStr) {
+        const lastSync = new Date(lastSyncStr);
+        const diffMs = Date.now() - lastSync.getTime();
+        // Se sincronizou há menos de 24h (86400000ms), não precisa de backup diário
+        if (diffMs < 86400000) {
+          needsDailySync = false;
+        }
+      }
+
+      if (needsDailySync || localStorage.getItem('namao_pending_sync') === 'true') {
+        doSync();
+      }
+    };
+
+    checkInitialSync();
 
     return () => {
       window.removeEventListener('online', handleOnline);

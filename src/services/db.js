@@ -63,35 +63,3 @@ export async function setExpensesData(data) {
   await set(EXPENSES_KEY, data);
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
-
-export async function exportBackup() {
-  const data = await getExpenses();
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `namao_backup_${new Date().toISOString().split('T')[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-export async function importBackup(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (Array.isArray(data)) {
-          await set(EXPENSES_KEY, data);
-          resolve(true);
-        } else {
-          reject('Formato inválido');
-        }
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.readAsText(file);
-  });
-}
