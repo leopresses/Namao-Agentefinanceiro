@@ -30,7 +30,8 @@ export default function ExpenseForm() {
   const [status, setStatus] = useState(isIncome ? 'paid' : 'unpaid');
   
   // Opções de Recorrência (Apenas para novas despesas)
-  const [recurrence, setRecurrence] = useState('unica'); // 'unica', 'parcelada', 'fixa'
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceType, setRecurrenceType] = useState('fixa'); // 'parcelada', 'fixa'
   const [installments, setInstallments] = useState(2);
   const [fixedMonths, setFixedMonths] = useState(12);
   const [groupId, setGroupId] = useState(null);
@@ -83,16 +84,20 @@ export default function ExpenseForm() {
     } else {
       // Criar nova (com suporte a recorrência)
       let loops = 1;
-      if (recurrence === 'parcelada') loops = parseInt(installments, 10);
-      if (recurrence === 'fixa') loops = parseInt(fixedMonths, 10);
+      let currentRecurrence = 'unica';
+      if (isRecurring) {
+        currentRecurrence = recurrenceType;
+        if (recurrenceType === 'parcelada') loops = parseInt(installments, 10);
+        if (recurrenceType === 'fixa') loops = parseInt(fixedMonths, 10);
+      }
 
       const baseAmount = parseFloat(amount);
-      const valuePerInstallment = recurrence === 'parcelada' ? Number((baseAmount / loops).toFixed(2)) : baseAmount;
+      const valuePerInstallment = baseAmount; // O valor digitado é o valor real da parcela
       const groupId = loops > 1 ? Date.now().toString() + Math.random().toString(36).substring(2, 9) : null;
 
       for (let i = 0; i < loops; i++) {
         let desc = description;
-        if (recurrence === 'parcelada' || recurrence === 'fixa') {
+        if (currentRecurrence === 'parcelada' || currentRecurrence === 'fixa') {
           desc = `${description} (${i + 1}/${loops})`;
         }
 
@@ -139,7 +144,7 @@ export default function ExpenseForm() {
               type="number" 
               step="0.01"
               min="0.01"
-              placeholder={recurrence === 'parcelada' && !isEditing ? "Valor Total (R$)" : "R$"}
+              placeholder="R$"
               className="input-field" 
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -158,17 +163,60 @@ export default function ExpenseForm() {
           </div>
           
           {!isEditing && (
-            <div className="input-group">
-              <label className="input-label">Tipo de Movimentação</label>
-              <select className="input-field" value={recurrence} onChange={(e) => setRecurrence(e.target.value)}>
-                <option value="unica">Única (Acontece uma vez)</option>
-                <option value="parcelada">Parcelada (Divide o valor em X vezes)</option>
-                <option value="fixa">Fixa (Repete o mesmo valor por X meses)</option>
-              </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '24px', marginBottom: '8px' }}>
+              <span className="input-label" style={{ marginBottom: 0, fontSize: '1.1rem' }}>Repetir</span>
+              <div 
+                onClick={() => setIsRecurring(!isRecurring)}
+                style={{
+                  width: '50px', height: '28px', borderRadius: '14px',
+                  background: isRecurring ? 'var(--color-emerald-primary)' : '#ccc',
+                  position: 'relative', cursor: 'pointer', transition: '0.3s'
+                }}
+              >
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '50%', background: '#fff',
+                  position: 'absolute', top: '2px', left: isRecurring ? '24px' : '2px',
+                  transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }} />
+              </div>
             </div>
           )}
 
-          {!isEditing && recurrence === 'parcelada' && (
+          {!isEditing && isRecurring && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px', marginLeft: '4px', marginBottom: '24px' }}>
+              <div 
+                onClick={() => setRecurrenceType('fixa')}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+              >
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  border: `2px solid ${recurrenceType === 'fixa' ? 'var(--color-emerald-primary)' : '#ccc'}`,
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  transition: '0.2s'
+                }}>
+                  {recurrenceType === 'fixa' && <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--color-emerald-primary)' }} />}
+                </div>
+                <span style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>Fixo</span>
+              </div>
+
+              <div 
+                onClick={() => setRecurrenceType('parcelada')}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+              >
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  border: `2px solid ${recurrenceType === 'parcelada' ? 'var(--color-emerald-primary)' : '#ccc'}`,
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  transition: '0.2s'
+                }}>
+                  {recurrenceType === 'parcelada' && <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--color-emerald-primary)' }} />}
+                </div>
+                <span style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>Parcelado</span>
+              </div>
+            </div>
+          )}
+
+          {!isEditing && isRecurring && recurrenceType === 'parcelada' && (
             <div className="input-group">
               <label className="input-label">Número de Parcelas</label>
               <input 
@@ -182,7 +230,7 @@ export default function ExpenseForm() {
             </div>
           )}
 
-          {!isEditing && recurrence === 'fixa' && (
+          {!isEditing && isRecurring && recurrenceType === 'fixa' && (
             <div className="input-group" style={{ background: 'rgba(244, 63, 94, 0.05)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
               <label className="input-label" style={{ color: 'var(--color-crimson-dark)' }}>Projetar por quantos meses?</label>
               <input 
