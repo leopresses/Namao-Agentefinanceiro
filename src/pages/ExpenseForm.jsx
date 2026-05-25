@@ -248,17 +248,17 @@ export default function ExpenseForm() {
           )}
 
           {!isIncome && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px', marginBottom: '8px' }}>
-              <input 
-                type="checkbox" 
-                id="paid" 
-                checked={status === 'paid'}
-                onChange={(e) => setStatus(e.target.checked ? 'paid' : 'unpaid')}
-                style={{ width: '20px', height: '20px', accentColor: 'var(--color-emerald-primary)' }}
-              />
-              <label htmlFor="paid" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>
-                {isEditing ? 'Esta despesa está paga?' : 'A 1ª fatura já foi paga?'}
-              </label>
+            <div className="input-group" style={{ marginTop: '16px' }}>
+              <label className="input-label">Situação</label>
+              <select 
+                className="input-field" 
+                value={status} 
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="paid">Paga (Já foi paga)</option>
+                <option value="unpaid">A Pagar (Fatura em aberto)</option>
+                <option value="planned">Planejamento / Lembrete Futuro</option>
+              </select>
             </div>
           )}
 

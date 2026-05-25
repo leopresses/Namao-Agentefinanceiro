@@ -40,8 +40,13 @@ export default function Dashboard() {
     filtered.forEach(item => {
       if (item.type === 'income') {
         currentBalance += item.amount;
-      } else if (item.status !== 'paid') {
-        currentToPay += item.amount;
+      } else if (item.type === 'expense') {
+        if (item.status !== 'planned') {
+          currentBalance -= item.amount;
+        }
+        if (item.status === 'unpaid') {
+          currentToPay += item.amount;
+        }
       }
     });
 
@@ -56,6 +61,18 @@ export default function Dashboard() {
   };
 
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const todayStr = today.toISOString().split('T')[0];
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  const urgentItems = allExpenses.filter(item => 
+    item.type === 'expense' && 
+    (item.status === 'unpaid' || item.status === 'planned') && 
+    (item.date === todayStr || item.date === tomorrowStr)
+  );
 
   return (
     <div style={{ paddingBottom: '80px' }} className="animate-fade-up">
@@ -79,6 +96,21 @@ export default function Dashboard() {
         </button>
       </div>
 
+      {urgentItems.length > 0 && (
+        <div style={{ background: 'var(--color-crimson-primary)', color: '#fff', borderRadius: '16px', padding: '16px', marginBottom: '24px', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.3)' }}>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ⚠️ Atenção: Vencimentos Próximos
+          </h3>
+          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.85rem' }}>
+            {urgentItems.map(u => (
+              <li key={u.id} style={{ marginBottom: '4px' }}>
+                {u.description} ({u.date === todayStr ? 'Hoje' : 'Amanhã'}) - R$ {u.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
         <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <h2 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Saldo do Mês</h2>
@@ -89,7 +121,7 @@ export default function Dashboard() {
             wordBreak: 'break-all',
             textAlign: 'center'
           }}>
-            R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {balance < 0 ? '- R$ ' : 'R$ '}{Math.abs(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h1>
         </div>
         <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -115,19 +147,30 @@ export default function Dashboard() {
             {displayedExpenses.map((exp) => {
               const isIncome = exp.type === 'income';
               const isPaid = exp.status === 'paid';
-              const color = isIncome ? 'var(--color-emerald-primary)' : (isPaid ? 'var(--color-emerald-dark)' : 'var(--color-crimson-primary)');
-              const sign = isIncome ? '+' : '-';
+              const isPlanned = exp.status === 'planned';
+              
+              let color = 'var(--color-crimson-primary)'; 
+              if (isIncome) color = 'var(--color-emerald-primary)';
+              else if (isPaid) color = 'var(--color-emerald-dark)';
+              else if (isPlanned) color = '#f59e0b'; // amber for planned
+
+              const sign = isIncome ? '+' : (isPlanned ? '~' : '-');
+              
+              let statusText = '• Pendente';
+              if (isIncome) statusText = '• Renda';
+              else if (isPaid) statusText = '• Pago';
+              else if (isPlanned) statusText = '• Planejado';
 
               return (
                 <Link to={`/expense/${exp.id}`} key={exp.id} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                     <div style={{ width: '4px', height: '100%', background: color, borderRadius: '4px' }}></div>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '1rem', color: isPaid && !isIncome ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: isPaid && !isIncome ? 'line-through' : 'none' }}>
+                      <h4 style={{ margin: 0, fontSize: '1rem', color: (isPaid || isPlanned) && !isIncome ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: isPaid && !isIncome ? 'line-through' : 'none' }}>
                         {exp.description}
                       </h4>
                       <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        {exp.date.split('-').reverse().join('/')} {isIncome ? '• Renda' : (isPaid ? '• Pago' : '• Pendente')}
+                        {exp.date.split('-').reverse().join('/')} {statusText}
                       </p>
                     </div>
                   </div>
