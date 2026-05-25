@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { addExpense, getExpenseById, updateExpense, updateExpenseGroupAmount } from '../services/db';
+import { addExpense, getExpenseById, updateExpense, updateExpenseGroup } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { CATEGORIES } from '../utils/categories';
 
@@ -67,11 +67,11 @@ export default function ExpenseForm() {
       if (groupId) {
         const updateAll = await showConfirm(
           'Atualizar Parcelas',
-          'Esta é uma conta parcelada/recorrente. Deseja atualizar o valor de TODAS as parcelas deste grupo? (Clique em OK para Todas, ou Cancelar para alterar apenas este mês).'
+          'Esta é uma conta parcelada/recorrente. Deseja atualizar Categoria, Valor e Descrição de TODAS as parcelas a partir desta data? (Clique em OK para Todas, ou Cancelar para alterar apenas a deste mês).'
         );
         
         if (updateAll) {
-          await updateExpenseGroupAmount(groupId, newAmount, date);
+          await updateExpenseGroup(groupId, { amount: newAmount, category, description }, date);
         }
       }
 

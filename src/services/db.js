@@ -45,10 +45,10 @@ export async function deleteExpense(id) {
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
-export async function updateExpenseGroupAmount(groupId, newAmount, fromDate) {
+export async function updateExpenseGroup(groupId, updates, fromDate) {
   await update(EXPENSES_KEY, (val) => {
     const list = val || [];
-    return list.map(e => (e.groupId === groupId && e.date >= fromDate) ? { ...e, amount: newAmount } : e);
+    return list.map(e => (e.groupId === groupId && e.date >= fromDate) ? { ...e, ...updates } : e);
   });
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
