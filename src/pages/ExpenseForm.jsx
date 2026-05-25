@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { addExpense, getExpenseById, updateExpense, updateExpenseGroupAmount } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
+import { CATEGORIES } from '../utils/categories';
 
 // Função para adicionar meses a uma data (YYYY-MM-DD)
 function addMonths(dateString, monthsToAdd) {
@@ -28,6 +29,7 @@ export default function ExpenseForm() {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [status, setStatus] = useState(isIncome ? 'paid' : 'unpaid');
+  const [category, setCategory] = useState('outros');
   
   // Opções de Recorrência (Apenas para novas despesas)
   const [isRecurring, setIsRecurring] = useState(false);
@@ -46,6 +48,7 @@ export default function ExpenseForm() {
           setAmount(expense.amount.toString());
           setDate(expense.date);
           setStatus(expense.status);
+          setCategory(expense.category || 'outros');
           setGroupId(expense.groupId || null);
         }
       }
@@ -79,6 +82,7 @@ export default function ExpenseForm() {
         date,
         type: typeParam,
         status,
+        category,
         groupId
       });
     } else {
@@ -107,7 +111,8 @@ export default function ExpenseForm() {
           amount: valuePerInstallment,
           date: addMonths(date, i),
           type: typeParam,
-          status: (i === 0) ? status : 'unpaid'
+          status: (i === 0) ? status : 'unpaid',
+          category
         });
       }
     }
@@ -138,6 +143,28 @@ export default function ExpenseForm() {
               required 
             />
           </div>
+
+          <div className="input-group">
+            <label className="input-label">Categoria</label>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none' }}>
+              {CATEGORIES.map(cat => (
+                <div 
+                  key={cat.id}
+                  onClick={() => setCategory(cat.id)}
+                  style={{ 
+                    padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    background: category === cat.id ? 'var(--color-emerald-primary)' : 'rgba(15,23,42,0.05)',
+                    color: category === cat.id ? '#fff' : 'var(--text-primary)',
+                    border: `1px solid ${category === cat.id ? 'var(--color-emerald-primary)' : 'rgba(15,23,42,0.1)'}`,
+                    transition: '0.2s', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px'
+                  }}
+                >
+                  {cat.icon} {cat.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="input-group">
             <label className="input-label">Valor</label>
             <input 

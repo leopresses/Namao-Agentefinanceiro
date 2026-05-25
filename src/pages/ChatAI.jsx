@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getExpenses } from '../services/db';
+import { getCategory } from '../utils/categories';
 
 export default function ChatAI() {
   const [messages, setMessages] = useState([
@@ -65,7 +66,7 @@ export default function ChatAI() {
         - Saldo Atual do Mês (Renda - Despesas Pagas): R$ ${balance.toFixed(2)}.
         - Faturas a Pagar neste mês: R$ ${toPay.toFixed(2)}.
         Aqui está a lista de movimentações DO MÊS ATUAL:
-        ${currentMonthExpenses.map(e => `- ${e.date}: ${e.description} | R$ ${e.amount} | Tipo: ${e.type} | Status: ${e.status}`).join('\n')}
+        ${currentMonthExpenses.map(e => `- ${e.date}: ${e.description} | Categoria: ${e.category ? getCategory(e.category).label : 'Outros'} | R$ ${e.amount} | Tipo: ${e.type} | Status: ${e.status}`).join('\n')}
       `;
 
       // Requisição segura para o servidor backend local ou em produção

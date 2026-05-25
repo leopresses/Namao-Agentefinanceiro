@@ -4,12 +4,15 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useDialog } from '../contexts/DialogContext';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getCategory } from '../utils/categories';
 
 export default function Report() {
   const [allExpenses, setAllExpenses] = useState([]);
   const [displayedExpenses, setDisplayedExpenses] = useState([]);
   const [balance, setBalance] = useState(0);
   const [toPay, setToPay] = useState(0);
+  const [categoryTotals, setCategoryTotals] = useState({});
+  const [totalExpenseAmount, setTotalExpenseAmount] = useState(0);
   
   // Controle de Mês ('all' ou data)
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'month'
@@ -45,17 +48,31 @@ export default function Report() {
     
     let currentBalance = 0;
     let currentToPay = 0;
+    const catTotals = {};
+    let totalExp = 0;
 
     filtered.forEach(item => {
       if (item.type === 'income') {
         currentBalance += item.amount;
-      } else if (item.status !== 'paid') {
-        currentToPay += item.amount;
+      } else if (item.type === 'expense') {
+        if (item.status !== 'planned') {
+          currentBalance -= item.amount;
+          
+          const cat = item.category || 'outros';
+          catTotals[cat] = (catTotals[cat] || 0) + item.amount;
+          totalExp += item.amount;
+        }
+        
+        if (item.status === 'unpaid') {
+          currentToPay += item.amount;
+        }
       }
     });
 
     setBalance(currentBalance);
     setToPay(currentToPay);
+    setCategoryTotals(catTotals);
+    setTotalExpenseAmount(totalExp);
   }, [allExpenses, filterMode, currentDate]);
 
   const changeMonth = (offset) => {
@@ -205,6 +222,32 @@ export default function Report() {
         </button>
       </div>
 
+      {/* Resumo de Categorias Visual */}
+      {totalExpenseAmount > 0 && (
+        <div className="glass-card" style={{ marginBottom: '32px', padding: '24px' }}>
+          <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)', fontSize: '1.1rem' }}>Despesas por Categoria</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {Object.entries(categoryTotals)
+              .sort((a, b) => b[1] - a[1])
+              .map(([catId, amount]) => {
+                const cat = getCategory(catId);
+                const percent = ((amount / totalExpenseAmount) * 100).toFixed(1);
+                return (
+                  <div key={catId}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.9rem' }}>
+                      <span style={{ color: 'var(--text-primary)' }}>{cat.icon} {cat.label}</span>
+                      <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({percent}%)</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(15, 23, 42, 0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${percent}%`, height: '100%', background: 'var(--color-crimson-primary)', borderRadius: '4px' }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       {/* CONTEÚDO DO PDF (Oculto) */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         {chunks.map((chunk, pageIndex) => (
@@ -241,9 +284,9 @@ export default function Report() {
                     border: '1px solid rgba(16, 185, 129, 0.1)',
                     textAlign: 'center'
                   }}>
-                    <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>{filterMode === 'all' ? 'Renda Total (Histórico)' : 'Saldo do Mês'}</p>
-                    <h1 style={{ margin: 0, fontSize: '28px', color: '#059669', wordBreak: 'break-all' }}>
-                      R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>{filterMode === 'all' ? 'Saldo Histórico' : 'Saldo do Mês'}</p>
+                    <h1 style={{ margin: 0, fontSize: '28px', color: balance >= 0 ? '#059669' : '#E11D48', wordBreak: 'break-all' }}>
+                      {balance < 0 ? '- R$ ' : 'R$ '}{Math.abs(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h1>
                   </div>
                   
@@ -286,17 +329,19 @@ export default function Report() {
                   {chunk.map((exp, idx) => (
                     <tr key={exp.id} style={{ borderBottom: idx === chunk.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
                       <td style={{ padding: '16px 16px', color: '#64748B' }}>{exp.date.split('-').reverse().join('/')}</td>
-                      <td style={{ padding: '16px 16px', fontWeight: '500' }}>{exp.description}</td>
+                      <td style={{ padding: '16px 16px', fontWeight: '500' }}>
+                        {exp.type === 'expense' ? getCategory(exp.category).icon + ' ' : '💰 '}{exp.description}
+                      </td>
                       <td style={{ padding: '16px 16px' }}>
                         <span style={{ 
-                          background: exp.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)', 
-                          color: exp.status === 'paid' ? '#059669' : '#E11D48',
+                          background: exp.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : (exp.status === 'planned' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(244, 63, 94, 0.1)'), 
+                          color: exp.status === 'paid' ? '#059669' : (exp.status === 'planned' ? '#f59e0b' : '#E11D48'),
                           padding: '4px 12px',
                           borderRadius: '100px',
                           fontSize: '12px',
                           fontWeight: '600'
                         }}>
-                          {exp.status === 'paid' ? 'Pago' : 'Pendente'}
+                          {exp.status === 'paid' ? 'Pago' : (exp.status === 'planned' ? 'Planejado' : 'Pendente')}
                         </span>
                       </td>
                       <td style={{ padding: '16px 16px', textAlign: 'right', fontWeight: '700', color: exp.type === 'income' ? '#059669' : '#E11D48' }}>

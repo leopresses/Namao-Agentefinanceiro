@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getExpenses } from '../services/db';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getCategory } from '../utils/categories';
 
 export default function Dashboard() {
   const [allExpenses, setAllExpenses] = useState([]);
@@ -148,6 +149,7 @@ export default function Dashboard() {
               const isIncome = exp.type === 'income';
               const isPaid = exp.status === 'paid';
               const isPlanned = exp.status === 'planned';
+              const catInfo = getCategory(exp.category);
               
               let color = 'var(--color-crimson-primary)'; 
               if (isIncome) color = 'var(--color-emerald-primary)';
@@ -167,7 +169,7 @@ export default function Dashboard() {
                     <div style={{ width: '4px', height: '100%', background: color, borderRadius: '4px' }}></div>
                     <div>
                       <h4 style={{ margin: 0, fontSize: '1rem', color: (isPaid || isPlanned) && !isIncome ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: isPaid && !isIncome ? 'line-through' : 'none' }}>
-                        {exp.description}
+                        {isIncome ? '💰' : catInfo.icon} {exp.description}
                       </h4>
                       <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                         {exp.date.split('-').reverse().join('/')} {statusText}
