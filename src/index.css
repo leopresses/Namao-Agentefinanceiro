@@ -20,6 +20,25 @@
   --glass-shadow: 0 8px 32px 0 rgba(30, 41, 59, 0.05);
 }
 
+:root[data-theme='dark'] {
+  --bg-primary: #0F172A;
+  --bg-secondary: #1E293B;
+  
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-inverse: #0F172A;
+  
+  --color-emerald-primary: #10B981;
+  --color-emerald-dark: #34D399;
+  
+  --color-crimson-primary: #F43F5E;
+  --color-crimson-dark: #FB7185;
+  
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

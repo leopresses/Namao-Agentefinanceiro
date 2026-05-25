@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
 import { logoutGoogle, saveCloudBackup, loadCloudBackup } from '../services/firebase';
 import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
-import { CloudUpload, CloudDownload, LogOut, User } from 'lucide-react';
+import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock } from 'lucide-react';
 
 export default function Profile() {
   const navigate = useNavigate();
   const { showAlert, showConfirm } = useDialog();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastBackup, setLastBackup] = useState(localStorage.getItem('namao_last_sync_time'));
+  const [theme, setTheme] = useState(localStorage.getItem('namao_theme') || 'light');
+  const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('namao_biometric') === 'true');
 
   React.useEffect(() => {
     const handleSyncCompleted = () => {
@@ -85,6 +87,29 @@ export default function Profile() {
     }
   };
 
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('namao_theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
+  const toggleBiometric = async () => {
+    if (!biometricEnabled) {
+      if (window.PublicKeyCredential) {
+        setBiometricEnabled(true);
+        localStorage.setItem('namao_biometric', 'true');
+        showAlert('Sucesso', 'O App Lock Biométrico foi ativado! Da próxima vez que abrir, pediremos sua digital ou FaceID.');
+      } else {
+        showAlert('Erro', 'Seu dispositivo ou navegador não suporta biometria (WebAuthn).');
+      }
+    } else {
+      setBiometricEnabled(false);
+      localStorage.removeItem('namao_biometric');
+      showAlert('Aviso', 'O App Lock Biométrico foi desativado.');
+    }
+  };
+
 // Funções antigas de JSON removidas
 
   return (
@@ -157,9 +182,68 @@ export default function Profile() {
         </div>
       )}
 
+      {/* Aparência e Segurança */}
+      <div className="glass-card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          ⚙️ Ajustes do App
+        </h3>
+        
+        <div 
+          onClick={toggleTheme}
+          style={{ 
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+            padding: '16px', background: 'rgba(15, 23, 42, 0.03)', borderRadius: '16px', 
+            marginBottom: '12px', cursor: 'pointer', border: '1px solid rgba(15, 23, 42, 0.05)' 
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {theme === 'dark' ? <Moon size={24} color="var(--color-emerald-primary)" /> : <Sun size={24} color="var(--color-emerald-primary)" />}
+            <div>
+              <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>Modo Escuro</h4>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Economiza bateria e protege os olhos</p>
+            </div>
+          </div>
+          <div style={{
+            width: '50px', height: '28px', borderRadius: '14px',
+            background: theme === 'dark' ? 'var(--color-emerald-primary)' : '#ccc',
+            position: 'relative', transition: '0.3s'
+          }}>
+            <div style={{
+              width: '24px', height: '24px', borderRadius: '50%', background: '#fff',
+              position: 'absolute', top: '2px', left: theme === 'dark' ? '24px' : '2px',
+              transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }} />
+          </div>
+        </div>
 
-
-
+        <div 
+          onClick={toggleBiometric}
+          style={{ 
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+            padding: '16px', background: 'rgba(15, 23, 42, 0.03)', borderRadius: '16px', 
+            cursor: 'pointer', border: '1px solid rgba(15, 23, 42, 0.05)' 
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Lock size={24} color={biometricEnabled ? 'var(--color-emerald-primary)' : 'var(--text-secondary)'} />
+            <div>
+              <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>App Lock</h4>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Exigir Biometria ao abrir o app</p>
+            </div>
+          </div>
+          <div style={{
+            width: '50px', height: '28px', borderRadius: '14px',
+            background: biometricEnabled ? 'var(--color-emerald-primary)' : '#ccc',
+            position: 'relative', transition: '0.3s'
+          }}>
+            <div style={{
+              width: '24px', height: '24px', borderRadius: '50%', background: '#fff',
+              position: 'absolute', top: '2px', left: biometricEnabled ? '24px' : '2px',
+              transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }} />
+          </div>
+        </div>
+      </div>
 
       {/* Danger Zone */}
       <div className="glass-card" style={{ marginBottom: '24px', background: 'rgba(244, 63, 94, 0.05)', border: '1px solid rgba(244, 63, 94, 0.2)' }}>

@@ -5,6 +5,7 @@ import html2canvas from 'html2canvas';
 import { useDialog } from '../contexts/DialogContext';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCategory } from '../utils/categories';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Report() {
   const [allExpenses, setAllExpenses] = useState([]);
@@ -13,6 +14,7 @@ export default function Report() {
   const [toPay, setToPay] = useState(0);
   const [categoryTotals, setCategoryTotals] = useState({});
   const [totalExpenseAmount, setTotalExpenseAmount] = useState(0);
+  const [chartData, setChartData] = useState([]);
   
   // Controle de Mês ('all' ou data)
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'month'
@@ -75,13 +77,33 @@ export default function Report() {
     setTotalExpenseAmount(totalExp);
   }, [allExpenses, filterMode, currentDate]);
 
-  const changeMonth = (offset) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + offset);
-    setCurrentDate(newDate);
-  };
-
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  useEffect(() => {
+    // Evolução últimos 6 meses
+    const monthsData = {};
+    for (let i = 5; i >= 0; i--) {
+       const d = new Date();
+       d.setMonth(d.getMonth() - i);
+       const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2, '0');
+       const label = monthNames[d.getMonth()].substring(0, 3) + '/' + String(d.getFullYear()).substring(2);
+       monthsData[key] = { name: label, Renda: 0, Despesa: 0 };
+    }
+    
+    allExpenses.forEach(item => {
+       if (item.status === 'planned') return;
+       const itemDate = new Date(item.date + 'T12:00:00');
+       const key = itemDate.getFullYear() + '-' + String(itemDate.getMonth()+1).padStart(2, '0');
+       if (monthsData[key]) {
+          if (item.type === 'income') monthsData[key].Renda += item.amount;
+          if (item.type === 'expense') monthsData[key].Despesa += item.amount;
+       }
+    });
+    
+    setChartData(Object.values(monthsData));
+  }, [allExpenses]);
+
+  const changeMonth = (offset) => {
 
   const getReportTitle = () => {
     if (filterMode === 'all') return 'Relatório Geral (Todos os Meses)';
@@ -220,6 +242,27 @@ export default function Report() {
         >
           {isExporting ? 'Gerando...' : 'Exportar & Compartilhar'}
         </button>
+      </div>
+
+      {/* Gráfico de Evolução (Últimos 6 Meses) */}
+      <div className="glass-card animate-fade-up" style={{ marginBottom: '32px', padding: '24px' }}>
+        <h3 style={{ marginBottom: '24px', color: 'var(--text-primary)', fontSize: '1.1rem', textAlign: 'center' }}>📈 Evolução (6 Meses)</h3>
+        <div style={{ width: '100%', height: 220 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(15, 23, 42, 0.05)" vertical={false} />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} tickFormatter={(val) => `R$${val >= 1000 ? (val/1000).toFixed(0)+'k' : val}`} />
+              <Tooltip 
+                contentStyle={{ background: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-shadow)', color: 'var(--text-primary)' }}
+                itemStyle={{ fontWeight: '600' }}
+                formatter={(value) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, '']}
+              />
+              <Line type="monotone" dataKey="Renda" stroke="var(--color-emerald-primary)" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="Despesa" stroke="var(--color-crimson-primary)" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Resumo de Categorias Visual */}

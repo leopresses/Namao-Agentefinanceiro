@@ -11,6 +11,7 @@ import BottomNav from './components/BottomNav';
 import HelpModal from './components/HelpModal';
 import PwaPrompt from './components/PwaPrompt';
 import Sidebar from './components/Sidebar';
+import BiometricLock from './components/BiometricLock';
 import { DialogProvider } from './contexts/DialogContext';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAutoSync } from './hooks/useAutoSync';
@@ -64,6 +65,11 @@ function App() {
   const hideNav = location.pathname === '/login';
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('namao_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
+
   const content = (
     <Routes>
       <Route path="/login" element={<Login />} />
@@ -82,6 +88,7 @@ function App() {
 
   return (
     <DialogProvider>
+      <BiometricLock requireLock={!hideNav && localStorage.getItem('namao_biometric') === 'true'}>
       {isDesktop && !hideNav ? (
         <div className="desktop-layout">
           <Sidebar />
@@ -95,6 +102,7 @@ function App() {
           {!hideNav && <BottomNav />}
         </div>
       )}
+      </BiometricLock>
       
       {!hideNav && <HelpModal />}
       {!hideNav && <PwaPrompt />}
