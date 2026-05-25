@@ -141,8 +141,8 @@ export default function Report() {
   // Como é local, vamos tentar renderizar a tag img normalmente, mas se falhar no CORS, html2canvas pode ignorar.
   // Como estamos no mesmo domínio, deve funcionar.
 
-  const FIRST_PAGE_ROWS = 12;
-  const OTHER_PAGE_ROWS = 22;
+  const FIRST_PAGE_ROWS = totalExpenseAmount > 0 ? 5 : 12;
+  const OTHER_PAGE_ROWS = 20;
   
   const chunks = [];
   let remaining = [...displayedExpenses];
