@@ -348,3 +348,25 @@ button:active {
 .amount-expense {
   color: var(--color-crimson-primary);
 }
+
+/* Utilitários de UX/QA Fixes */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 48px - 80px); /* 48px padding (24 * 2) + 80px BottomNav */
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .chat-container {
+    height: calc(100vh - 80px); /* 80px padding (40 * 2) no desktop */
+  }
+}

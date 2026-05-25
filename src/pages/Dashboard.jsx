@@ -76,7 +76,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div style={{ paddingBottom: '80px' }} className="animate-fade-up">
+    <div className="animate-fade-up">
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
         <h1 className="app-title">
           <img src="/logo.png" alt="NaMão Logo" className="logo-icon" />
@@ -119,7 +119,9 @@ export default function Dashboard() {
             fontSize: balance.toString().length > 7 ? '1.1rem' : '1.4rem', 
             marginTop: '8px', 
             color: balance >= 0 ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)',
-            wordBreak: 'break-all',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
             textAlign: 'center'
           }}>
             {balance < 0 ? '- R$ ' : 'R$ '}{Math.abs(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -131,7 +133,9 @@ export default function Dashboard() {
             fontSize: toPay.toString().length > 7 ? '1.1rem' : '1.4rem', 
             marginTop: '8px', 
             color: 'var(--color-crimson-dark)',
-            wordBreak: 'break-all',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
             textAlign: 'center'
           }}>
             R$ {toPay.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

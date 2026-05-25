@@ -104,12 +104,7 @@ export default function ChatAI() {
   };
 
   return (
-    <div className="animate-fade-up" style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: 'calc(100vh - 80px)', // Remove os 80px do BottomNav
-      overflow: 'hidden'
-    }}>
+    <div className="chat-container animate-fade-up">
       <header className="app-header glass" style={{ marginBottom: '16px' }}>
         <h1 className="app-title" style={{ fontSize: '1.2rem' }}>Agente IA</h1>
       </header>

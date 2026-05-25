@@ -155,7 +155,7 @@ export default function Report() {
   }
 
   return (
-    <div style={{ paddingBottom: '80px' }} className="animate-fade-up">
+    <div className="animate-fade-up">
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
         <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>Relatórios</h1>
       </header>
@@ -285,7 +285,7 @@ export default function Report() {
                     textAlign: 'center'
                   }}>
                     <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>{filterMode === 'all' ? 'Saldo Histórico' : 'Saldo do Mês'}</p>
-                    <h1 style={{ margin: 0, fontSize: '28px', color: balance >= 0 ? '#059669' : '#E11D48', wordBreak: 'break-all' }}>
+                    <h1 style={{ margin: 0, fontSize: '28px', color: balance >= 0 ? '#059669' : '#E11D48', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {balance < 0 ? '- R$ ' : 'R$ '}{Math.abs(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h1>
                   </div>
@@ -299,7 +299,7 @@ export default function Report() {
                     textAlign: 'center'
                   }}>
                     <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>{filterMode === 'all' ? 'Pendências Acumuladas' : 'Faturas a Pagar'}</p>
-                    <h1 style={{ margin: 0, fontSize: '28px', color: '#E11D48', wordBreak: 'break-all' }}>
+                    <h1 style={{ margin: 0, fontSize: '28px', color: '#E11D48', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       R$ {toPay.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h1>
                   </div>

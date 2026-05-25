@@ -121,7 +121,7 @@ export default function ExpenseForm() {
   };
 
   return (
-    <div style={{ paddingBottom: '80px' }} className="animate-fade-up">
+    <div className="animate-fade-up">
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
         <div className="btn-icon" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }}>{'<'}</div>
         <h1 style={{ fontSize: '1.2rem', color: isIncome ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)' }}>
@@ -146,7 +146,7 @@ export default function ExpenseForm() {
 
           <div className="input-group">
             <label className="input-label">Categoria</label>
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none' }}>
+            <div className="hide-scrollbar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
               {CATEGORIES.map(cat => (
                 <div 
                   key={cat.id}
