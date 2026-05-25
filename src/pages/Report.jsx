@@ -254,7 +254,7 @@ export default function Report() {
                 <Tooltip 
                   contentStyle={{ background: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-shadow)', color: 'var(--text-primary)' }}
                   itemStyle={{ fontWeight: '600' }}
-                  formatter={(value) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Gasto']}
+                  formatter={(value, name) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, name]}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -344,6 +344,31 @@ export default function Report() {
                     </h1>
                   </div>
                 </div>
+
+                {totalExpenseAmount > 0 && (
+                  <div style={{ background: '#FFFFFF', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid rgba(15, 23, 42, 0.05)', marginBottom: '40px' }}>
+                    <h3 style={{ margin: '0 0 16px 0', color: '#1E293B', fontSize: '18px' }}>Despesas por Categoria</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {Object.entries(categoryTotals)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([catId, amount]) => {
+                          const cat = getCategory(catId);
+                          const percent = ((amount / totalExpenseAmount) * 100).toFixed(1);
+                          return (
+                            <div key={catId}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '14px' }}>
+                                <span style={{ color: '#1E293B' }}>{cat.icon} {cat.label}</span>
+                                <span style={{ color: '#64748B', fontWeight: '600' }}>R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({percent}%)</span>
+                              </div>
+                              <div style={{ width: '100%', height: '8px', background: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ width: `${percent}%`, height: '100%', background: '#E11D48', borderRadius: '4px' }}></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
