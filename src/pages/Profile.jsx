@@ -224,8 +224,8 @@ export default function Profile() {
           onClick={toggleTheme}
           style={{ 
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-            padding: '16px', background: 'rgba(15, 23, 42, 0.03)', borderRadius: '16px', 
-            marginBottom: '12px', cursor: 'pointer', border: '1px solid rgba(15, 23, 42, 0.05)' 
+            padding: '16px', background: 'var(--bg-secondary)', borderRadius: '16px', 
+            marginBottom: '12px', cursor: 'pointer', border: '1px solid var(--glass-border)' 
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -252,8 +252,8 @@ export default function Profile() {
           onClick={toggleBiometric}
           style={{ 
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-            padding: '16px', background: 'rgba(15, 23, 42, 0.03)', borderRadius: '16px', 
-            cursor: 'pointer', border: '1px solid rgba(15, 23, 42, 0.05)' 
+            padding: '16px', background: 'var(--bg-secondary)', borderRadius: '16px', 
+            cursor: 'pointer', border: '1px solid var(--glass-border)' 
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

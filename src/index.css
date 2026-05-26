@@ -224,7 +224,7 @@ body {
   padding: 16px;
   border-radius: 16px;
   border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--bg-primary);
   color: var(--text-primary);
   font-family: 'Inter', sans-serif;
   font-size: 1rem;
@@ -235,7 +235,7 @@ body {
   outline: none;
   border-color: var(--color-emerald-primary);
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
-  background: #FFFFFF;
+  background: var(--bg-secondary);
 }
 
 /* Buttons */
@@ -340,7 +340,7 @@ button:active {
 }
 
 .expense-item:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--bg-secondary);
   border-radius: 12px;
 }
 

@@ -67,7 +67,7 @@ export default function PwaPrompt() {
       bottom: '100px', // Fica acima da BottomNav
       left: '24px',
       right: '24px',
-      background: 'rgba(255, 255, 255, 0.95)',
+      background: 'var(--bg-primary)',
       backdropFilter: 'blur(16px)',
       border: '1px solid var(--color-emerald-primary)',
       borderRadius: '24px',
@@ -95,7 +95,7 @@ export default function PwaPrompt() {
       </div>
 
       {deviceType === 'ios' ? (
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5', background: 'rgba(15, 23, 42, 0.05)', padding: '12px', borderRadius: '12px' }}>
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '12px' }}>
           Para instalar no iPhone:<br/>
           1. Toque no ícone Compartilhar <Share size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /><br/>
           2. Role e toque em <strong>"Adicionar à Tela de Início"</strong> <PlusSquare size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />

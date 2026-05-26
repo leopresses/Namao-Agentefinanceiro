@@ -123,7 +123,7 @@ export default function ChatAI() {
             <div className="glass-card" style={{ 
               padding: '16px', 
               borderRadius: msg.sender === 'user' ? '24px 24px 4px 24px' : '24px 24px 24px 4px',
-              background: msg.sender === 'user' ? 'var(--color-emerald-primary)' : 'rgba(255, 255, 255, 0.85)',
+              background: msg.sender === 'user' ? 'var(--color-emerald-primary)' : 'var(--bg-secondary)',
               color: msg.sender === 'user' ? '#fff' : 'var(--text-primary)',
               border: msg.sender === 'user' ? 'none' : '1px solid var(--glass-border)',
               boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)'
@@ -141,7 +141,7 @@ export default function ChatAI() {
       </div>
 
       <div style={{ padding: '0 0 16px 0' }}>
-        <div className="glass-card" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', padding: '12px 16px', borderRadius: '24px', background: 'rgba(255, 255, 255, 0.95)' }}>
+        <div className="glass-card" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', padding: '12px 16px', borderRadius: '24px', background: 'var(--bg-secondary)' }}>
           <textarea 
             placeholder="Pergunte qualquer coisa..." 
             value={input}

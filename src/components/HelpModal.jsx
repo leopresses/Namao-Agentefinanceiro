@@ -55,7 +55,7 @@ export default function HelpModal() {
       zIndex: 2000,
       padding: '24px'
     }}>
-      <div className="glass-card animate-fade-up" style={{ width: '100%', maxWidth: '400px', position: 'relative', background: '#fff' }}>
+      <div className="glass-card animate-fade-up" style={{ width: '100%', maxWidth: '400px', position: 'relative', background: 'var(--bg-primary)' }}>
         <button 
           onClick={() => setIsOpen(false)}
           style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--text-secondary)' }}

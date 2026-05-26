@@ -153,9 +153,9 @@ export default function ExpenseForm() {
                   onClick={() => setCategory(cat.id)}
                   style={{ 
                     padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', whiteSpace: 'nowrap',
-                    background: category === cat.id ? 'var(--color-emerald-primary)' : 'rgba(15,23,42,0.05)',
+                    background: category === cat.id ? 'var(--color-emerald-primary)' : 'var(--bg-secondary)',
                     color: category === cat.id ? '#fff' : 'var(--text-primary)',
-                    border: `1px solid ${category === cat.id ? 'var(--color-emerald-primary)' : 'rgba(15,23,42,0.1)'}`,
+                    border: `1px solid ${category === cat.id ? 'var(--color-emerald-primary)' : 'var(--glass-border)'}`,
                     transition: '0.2s', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px'
                   }}
                 >

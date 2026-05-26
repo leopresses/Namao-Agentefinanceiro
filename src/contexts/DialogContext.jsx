@@ -47,7 +47,7 @@ export function DialogProvider({ children }) {
           zIndex: 99999,
           padding: '24px'
         }}>
-          <div className="glass-card animate-fade-up" style={{ width: '100%', maxWidth: '400px', background: 'rgba(255, 255, 255, 0.95)', border: '1px solid var(--color-emerald-primary)' }}>
+          <div className="glass-card animate-fade-up" style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-primary)', border: '1px solid var(--color-emerald-primary)' }}>
             <h3 style={{ margin: '0 0 12px 0', color: 'var(--text-primary)', fontSize: '1.2rem' }}>{dialog.title}</h3>
             <p style={{ margin: '0 0 24px 0', color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.5' }}>{dialog.message}</p>
             
