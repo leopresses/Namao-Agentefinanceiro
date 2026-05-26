@@ -76,6 +76,19 @@ export default function BiometricLock({ children, requireLock }) {
       <button onClick={handleBiometricUnlock} className="btn-primary" style={{ width: '100%', maxWidth: '300px' }}>
         Desbloquear
       </button>
+
+      {error && (
+        <button 
+          onClick={() => {
+            localStorage.removeItem('namao_biometric');
+            localStorage.removeItem('namao_biometric_id');
+            setUnlocked(true);
+          }}
+          style={{ marginTop: '32px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: '0.85rem', textDecoration: 'underline', cursor: 'pointer' }}
+        >
+          Desativar App Lock (Recuperação)
+        </button>
+      )}
     </div>
   );
 }
