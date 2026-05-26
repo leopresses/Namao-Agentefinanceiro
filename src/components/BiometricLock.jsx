@@ -17,16 +17,27 @@ export default function BiometricLock({ children, requireLock }) {
         setUnlocked(true); // Fallback
         return;
       }
+      const savedIdStr = localStorage.getItem('namao_biometric_id');
+      if (!savedIdStr) {
+        // Fallback se não houver credencial salva
+        setUnlocked(true);
+        return;
+      }
+
+      const savedIdArray = JSON.parse(savedIdStr);
+      const credIdBuffer = new Uint8Array(savedIdArray);
       
-      // Simulando uma chamada WebAuthn local genérica
-      // Na vida real o app precisa de um backend para validar o challenge, 
-      // mas podemos chamar navigator.credentials.get para forçar o SO a pedir a biometria
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
       
       await navigator.credentials.get({
         publicKey: {
           challenge: challenge,
+          allowCredentials: [{
+            id: credIdBuffer,
+            type: 'public-key',
+            transports: ['internal']
+          }],
           timeout: 60000,
           userVerification: "required"
         }

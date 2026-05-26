@@ -97,15 +97,47 @@ export default function Profile() {
   const toggleBiometric = async () => {
     if (!biometricEnabled) {
       if (window.PublicKeyCredential) {
-        setBiometricEnabled(true);
-        localStorage.setItem('namao_biometric', 'true');
-        showAlert('Sucesso', 'O App Lock Biométrico foi ativado! Da próxima vez que abrir, pediremos sua digital ou FaceID.');
+        try {
+          const challenge = new Uint8Array(32);
+          window.crypto.getRandomValues(challenge);
+          const userId = new Uint8Array(16);
+          window.crypto.getRandomValues(userId);
+
+          const credential = await navigator.credentials.create({
+            publicKey: {
+              challenge: challenge,
+              rp: { name: "NaMão App" },
+              user: {
+                id: userId,
+                name: "usuario@namao",
+                displayName: "Usuário NaMão"
+              },
+              pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+              authenticatorSelection: {
+                authenticatorAttachment: "platform",
+                userVerification: "required"
+              },
+              timeout: 60000
+            }
+          });
+
+          const credIdArray = Array.from(new Uint8Array(credential.rawId));
+          localStorage.setItem('namao_biometric_id', JSON.stringify(credIdArray));
+
+          setBiometricEnabled(true);
+          localStorage.setItem('namao_biometric', 'true');
+          showAlert('Sucesso', 'O App Lock Biométrico foi ativado! Da próxima vez que abrir, pediremos sua digital ou FaceID.');
+        } catch (err) {
+          console.error('Falha ao registrar biometria', err);
+          showAlert('Erro', 'Ocorreu um erro ou você cancelou o registro da biometria.');
+        }
       } else {
         showAlert('Erro', 'Seu dispositivo ou navegador não suporta biometria (WebAuthn).');
       }
     } else {
       setBiometricEnabled(false);
       localStorage.removeItem('namao_biometric');
+      localStorage.removeItem('namao_biometric_id');
       showAlert('Aviso', 'O App Lock Biométrico foi desativado.');
     }
   };
