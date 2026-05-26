@@ -1,16 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getExpenses } from '../services/db';
 import { getCategory } from '../utils/categories';
+import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
+import { MessageSquarePlus, History, Trash2, ChevronLeft, X } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 
 export default function ChatAI() {
-  const [messages, setMessages] = useState([
-    { id: 1, text: 'Olá! Sou seu Agente Financeiro. Como posso te ajudar com suas finanças hoje?', sender: 'ai' }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [expenses, setExpenses] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [activeChatId, setActiveChatIdState] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [chatList, setChatList] = useState([]);
   const messagesEndRef = useRef(null);
+  const { showConfirm } = useDialog();
 
+  // Carregar despesas
   useEffect(() => {
     async function load() {
       const data = await getExpenses();
@@ -18,6 +24,63 @@ export default function ChatAI() {
     }
     load();
   }, []);
+
+  // Carregar ou criar chat ativo ao montar
+  useEffect(() => {
+    const savedId = getActiveChatId();
+    if (savedId) {
+      const chat = getChatById(savedId);
+      if (chat) {
+        setActiveChatIdState(chat.id);
+        setMessages(chat.messages);
+      } else {
+        startNewChat();
+      }
+    } else {
+      startNewChat();
+    }
+    refreshChatList();
+  }, []);
+
+  const refreshChatList = () => {
+    setChatList(getChatList());
+  };
+
+  const startNewChat = () => {
+    const chat = createChat();
+    setActiveChatIdState(chat.id);
+    setMessages(chat.messages);
+    setActiveChatId(chat.id);
+    refreshChatList();
+    setShowHistory(false);
+  };
+
+  const switchToChat = (chatId) => {
+    const chat = getChatById(chatId);
+    if (chat) {
+      setActiveChatIdState(chat.id);
+      setMessages(chat.messages);
+      setActiveChatId(chat.id);
+      setShowHistory(false);
+    }
+  };
+
+  const handleDeleteChat = async (chatId, e) => {
+    e.stopPropagation();
+    const confirmed = await showConfirm('Apagar Conversa', 'Deseja realmente apagar esta conversa?');
+    if (confirmed) {
+      deleteChat(chatId);
+      if (chatId === activeChatId) {
+        const list = getChatList();
+        if (list.length > 0) {
+          switchToChat(list[0].id);
+        } else {
+          startNewChat();
+        }
+      }
+      refreshChatList();
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -32,12 +95,19 @@ export default function ChatAI() {
 
     const userText = input.trim();
     const userMsg = { id: Date.now(), text: userText, sender: 'user' };
-    setMessages(prev => [...prev, userMsg]);
+    
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput('');
     setIsTyping(true);
 
+    // Persistir mensagem do usuário
+    if (activeChatId) {
+      addMessageToChat(activeChatId, userMsg);
+      refreshChatList();
+    }
+
     try {
-      // Contexto das finanças filtrado para o mês atual
       const currentDate = new Date();
       const currentMonth = currentDate.getMonth();
       const currentYear = currentDate.getFullYear();
@@ -55,7 +125,6 @@ export default function ChatAI() {
         if (item.type === 'income') {
           balance += item.amount;
         } else if (item.status === 'paid') {
-          // Quando pago, subtrai do saldo (dependendo de como você calcula, mas vamos mandar o Saldo Líquido atual do mês)
           balance -= item.amount;
         }
       });
@@ -69,7 +138,6 @@ export default function ChatAI() {
         ${currentMonthExpenses.map(e => `- ${e.date}: ${e.description} | Categoria: ${e.category ? getCategory(e.category).label : 'Outros'} | R$ ${e.amount} | Tipo: ${e.type} | Status: ${e.status}`).join('\n')}
       `;
 
-      // Requisição segura para o servidor backend local ou em produção
       const apiUrl = import.meta.env.VITE_API_URL || 'https://namao-agentefinanceiro.onrender.com/api/chat';
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -86,11 +154,23 @@ export default function ChatAI() {
       }
 
       const data = await response.json();
+      const aiMsg = { id: Date.now() + 2, text: data.text, sender: 'ai' };
 
-      setMessages(prev => [...prev, { id: Date.now() + 2, text: data.text, sender: 'ai' }]);
+      setMessages(prev => [...prev, aiMsg]);
+      
+      // Persistir resposta da IA
+      if (activeChatId) {
+        addMessageToChat(activeChatId, aiMsg);
+        refreshChatList();
+      }
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, { id: Date.now() + 2, text: error.message || "Erro desconhecido.", sender: 'ai' }]);
+      const errorMsg = { id: Date.now() + 2, text: error.message || "Erro desconhecido.", sender: 'ai' };
+      setMessages(prev => [...prev, errorMsg]);
+      
+      if (activeChatId) {
+        addMessageToChat(activeChatId, errorMsg);
+      }
     } finally {
       setIsTyping(false);
     }
@@ -103,12 +183,145 @@ export default function ChatAI() {
     }
   };
 
+  const formatDate = (isoString) => {
+    const d = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Agora';
+    if (diffMins < 60) return `${diffMins}min atrás`;
+    if (diffHours < 24) return `${diffHours}h atrás`;
+    if (diffDays < 7) return `${diffDays}d atrás`;
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
   return (
     <div className="chat-container animate-fade-up">
-      <header className="app-header glass" style={{ marginBottom: '16px' }}>
+      {/* Header */}
+      <header className="app-header glass" style={{ marginBottom: '16px', position: 'relative' }}>
         <h1 className="app-title" style={{ fontSize: '1.2rem' }}>Agente IA</h1>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={() => setShowHistory(!showHistory)}
+            style={{ 
+              background: showHistory ? 'var(--color-emerald-primary)' : 'transparent', 
+              border: 'none', 
+              padding: '8px', 
+              borderRadius: '12px',
+              color: showHistory ? '#fff' : 'var(--text-secondary)',
+              transition: '0.2s'
+            }}
+            title="Histórico de conversas"
+          >
+            <History size={20} />
+          </button>
+          <button 
+            onClick={startNewChat}
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              padding: '8px', 
+              borderRadius: '12px',
+              color: 'var(--color-emerald-primary)'
+            }}
+            title="Nova conversa"
+          >
+            <MessageSquarePlus size={20} />
+          </button>
+        </div>
       </header>
 
+      {/* Painel de Histórico */}
+      {showHistory && (
+        <div style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'var(--bg-primary)',
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '24px',
+          animation: 'fadeUp 0.3s ease forwards'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <h2 style={{ color: 'var(--text-primary)', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <History size={22} color="var(--color-emerald-primary)" />
+              Histórico de Conversas
+            </h2>
+            <button 
+              onClick={() => setShowHistory(false)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', padding: '8px' }}
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {chatList.length === 0 ? (
+              <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginTop: '40px' }}>
+                Nenhuma conversa encontrada.
+              </p>
+            ) : (
+              chatList.map(chat => (
+                <div 
+                  key={chat.id}
+                  onClick={() => switchToChat(chat.id)}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '16px',
+                    borderRadius: '16px',
+                    marginBottom: '8px',
+                    cursor: 'pointer',
+                    background: chat.id === activeChatId ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-secondary)',
+                    border: chat.id === activeChatId ? '1px solid var(--color-emerald-primary)' : '1px solid var(--glass-border)',
+                    transition: '0.2s'
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 style={{ 
+                      margin: 0, 
+                      color: 'var(--text-primary)', 
+                      fontSize: '0.95rem',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {chat.title}
+                    </h4>
+                    <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                      {chat.messageCount} mensagens · {formatDate(chat.updatedAt)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => handleDeleteChat(chat.id, e)}
+                    style={{ 
+                      background: 'transparent', 
+                      border: 'none', 
+                      color: 'var(--text-secondary)', 
+                      padding: '8px',
+                      flexShrink: 0,
+                      borderRadius: '8px'
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <button onClick={startNewChat} className="btn-primary" style={{ width: '100%', marginTop: '16px' }}>
+            <MessageSquarePlus size={18} /> Nova Conversa
+          </button>
+        </div>
+      )}
+
+      {/* Área de Mensagens */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '16px' }}>
         {messages.map(msg => (
           <div key={msg.id} style={{ 
@@ -140,6 +353,7 @@ export default function ChatAI() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input */}
       <div style={{ padding: '0 0 16px 0' }}>
         <div className="glass-card" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', padding: '12px 16px', borderRadius: '24px', background: 'var(--bg-secondary)' }}>
           <textarea 
