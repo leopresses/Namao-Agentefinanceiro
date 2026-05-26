@@ -29,13 +29,17 @@ export const logoutGoogle = async () => {
 };
 
 // Funções utilitárias de Nuvem (Cloud Firestore)
-export const saveCloudBackup = async (userId, expensesData) => {
+export const saveCloudBackup = async (userId, expensesData, chatsData) => {
   if (!userId) throw new Error("Usuário não autenticado");
   const userRef = doc(db, 'users', userId);
-  await setDoc(userRef, {
+  const payload = {
     expenses: expensesData,
     lastBackup: new Date().toISOString()
-  }, { merge: true });
+  };
+  if (chatsData !== undefined) {
+    payload.chats = chatsData;
+  }
+  await setDoc(userRef, payload, { merge: true });
 };
 
 export const loadCloudBackup = async (userId) => {
@@ -44,7 +48,11 @@ export const loadCloudBackup = async (userId) => {
   const docSnap = await getDoc(userRef);
   
   if (docSnap.exists()) {
-    return docSnap.data().expenses || [];
+    const data = docSnap.data();
+    return {
+      expenses: data.expenses || [],
+      chats: data.chats || null
+    };
   }
-  return [];
+  return { expenses: [], chats: null };
 };

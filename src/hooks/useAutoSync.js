@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getExpenses } from '../services/db';
+import { getAllChats } from '../services/chatDb';
 import { saveCloudBackup } from '../services/firebase';
 
 export function useAutoSync() {
@@ -15,7 +16,8 @@ export function useAutoSync() {
     setSyncStatus('syncing');
     try {
       const data = await getExpenses();
-      await saveCloudBackup(userUid, data);
+      const chats = getAllChats();
+      await saveCloudBackup(userUid, data, chats);
       localStorage.setItem('namao_pending_sync', 'false');
       
       const now = new Date().toISOString();

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
 import { logoutGoogle, saveCloudBackup, loadCloudBackup } from '../services/firebase';
 import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
+import { getAllChats, setAllChats } from '../services/chatDb';
 import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock } from 'lucide-react';
 
 export default function Profile() {
@@ -52,8 +53,9 @@ export default function Profile() {
     setIsSyncing(true);
     try {
       const data = await getExpenses();
-      await saveCloudBackup(userUid, data);
-      showAlert('Sucesso', 'Seus dados foram salvos com segurança na nuvem do Google!');
+      const chats = getAllChats();
+      await saveCloudBackup(userUid, data, chats);
+      showAlert('Sucesso', 'Seus dados e conversas com a IA foram salvos com segurança na nuvem do Google!');
     } catch (err) {
       console.error(err);
       showAlert('Erro', 'Ocorreu um erro ao salvar na nuvem. Verifique sua conexão.');
@@ -66,15 +68,18 @@ export default function Profile() {
     if (!isGoogle || !userUid) return;
     const confirmed = await showConfirm(
       'Restaurar da Nuvem', 
-      'Atenção: Isso vai substituir seus dados atuais pelos que estão salvos na Nuvem. Deseja continuar?'
+      'Atenção: Isso vai substituir seus dados atuais (lançamentos e conversas com a IA) pelos que estão salvos na Nuvem. Deseja continuar?'
     );
     if (confirmed) {
       setIsSyncing(true);
       try {
         const cloudData = await loadCloudBackup(userUid);
-        if (cloudData.length > 0) {
-          await setExpensesData(cloudData);
-          showAlert('Sucesso', 'Dados restaurados da nuvem com sucesso!');
+        if (cloudData.expenses.length > 0 || cloudData.chats) {
+          await setExpensesData(cloudData.expenses);
+          if (cloudData.chats) {
+            setAllChats(cloudData.chats);
+          }
+          showAlert('Sucesso', 'Dados e conversas restaurados da nuvem com sucesso!');
         } else {
           showAlert('Aviso', 'Não há dados salvos na sua nuvem ainda.');
         }

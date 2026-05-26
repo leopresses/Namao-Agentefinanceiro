@@ -11,6 +11,14 @@ function saveAll(chats) {
   localStorage.setItem(CHATS_KEY, JSON.stringify(chats));
 }
 
+export function getAllChats() {
+  return getAll();
+}
+
+export function setAllChats(chats) {
+  saveAll(chats);
+}
+
 export function getChatList() {
   return getAll().map(c => ({
     id: c.id,
