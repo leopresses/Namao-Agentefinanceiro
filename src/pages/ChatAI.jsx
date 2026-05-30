@@ -137,6 +137,7 @@ export default function ChatAI() {
         - Faturas a Pagar neste mês: R$ ${toPay.toFixed(2)}.
         Aqui está a lista de movimentações DO MÊS ATUAL:
         ${currentMonthExpenses.map(e => `- ${e.date}: ${e.description} | Categoria: ${e.category ? getCategory(e.category).label : 'Outros'} | R$ ${e.amount} | Tipo: ${e.type} | Status: ${e.status}`).join('\n')}
+      `;
       // Para Vercel, usamos caminho relativo. Em dev, o Vite Proxy lida com isso se configurado,
       // mas na Vercel o backend já roda no mesmo domínio do frontend.
       const apiUrl = import.meta.env.VITE_API_URL || '/api/chat';
