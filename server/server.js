@@ -7,7 +7,7 @@ const Groq = require('groq-sdk');
 // Firebase Admin SDK para validação de tokens (CWE-306)
 const admin = require('firebase-admin');
 admin.initializeApp({
-  projectId: process.env.FIREBASE_PROJECT_ID || 'namaoapp-6c35e'
+  projectId: process.env.FIREBASE_PROJECT_ID || 'namaowebapp'
 });
 
 const app = express();
