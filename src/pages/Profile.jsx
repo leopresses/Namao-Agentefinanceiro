@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
-import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId } from '../services/firebase';
+import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId, getUserProStatus } from '../services/firebase';
 import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
 import { getAllChats, setAllChats } from '../services/chatDb';
-import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock } from 'lucide-react';
+import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star } from 'lucide-react';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -13,12 +13,18 @@ export default function Profile() {
   const [lastBackup, setLastBackup] = useState(localStorage.getItem('namao_last_sync_time'));
   const [theme, setTheme] = useState(localStorage.getItem('namao_theme') || 'light');
   const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('namao_biometric') === 'true');
+  const [isPro, setIsPro] = useState(false);
+  const { showProModal } = useDialog();
 
   React.useEffect(() => {
     const handleSyncCompleted = () => {
       setLastBackup(localStorage.getItem('namao_last_sync_time'));
     };
     window.addEventListener('namao_sync_completed', handleSyncCompleted);
+    
+    // Load Pro Status
+    getUserProStatus().then(status => setIsPro(status.isPro));
+
     return () => window.removeEventListener('namao_sync_completed', handleSyncCompleted);
   }, []);
 
@@ -50,6 +56,10 @@ export default function Profile() {
 
   const handleCloudBackup = async () => {
     if (!isGoogle) return;
+    if (!isPro) {
+      showProModal();
+      return;
+    }
     setIsSyncing(true);
     try {
       const data = await getExpenses();
@@ -66,6 +76,10 @@ export default function Profile() {
 
   const handleCloudRestore = async () => {
     if (!isGoogle) return;
+    if (!isPro) {
+      showProModal();
+      return;
+    }
     const confirmed = await showConfirm(
       'Restaurar da Nuvem', 
       'Atenção: Isso vai substituir seus dados atuais (lançamentos e conversas com a IA) pelos que estão salvos na Nuvem. Deseja continuar?'
@@ -168,7 +182,20 @@ export default function Profile() {
             )}
           </div>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '4px' }}>{userName}</h2>
-          <p style={{ color: 'var(--color-emerald-dark)', fontSize: '0.85rem', fontWeight: '600' }}>Conectado via Google</p>
+          <p style={{ color: 'var(--color-emerald-dark)', fontSize: '0.85rem', fontWeight: '600', marginBottom: '16px' }}>Conectado via Google</p>
+          
+          {isPro ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255, 215, 0, 0.15)', color: '#D4AF37', padding: '6px 16px', borderRadius: '20px', fontWeight: 'bold', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
+              <Star size={16} fill="currentColor" /> NaMão PRO
+            </div>
+          ) : (
+            <button 
+              onClick={showProModal}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--color-emerald-primary)', color: 'white', padding: '8px 24px', borderRadius: '24px', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+            >
+              <Star size={16} fill="currentColor" /> Seja PRO
+            </button>
+          )}
         </div>
       ) : (
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '16px', marginBottom: '24px' }}>
@@ -187,7 +214,7 @@ export default function Profile() {
             ☁️ Sincronização em Nuvem
           </h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-            Mantenha seus dados seguros na nuvem do Google. Ideal para trocar de celular sem perder nada.
+            Mantenha seus dados seguros na nuvem do Google. Recurso exclusivo para assinantes PRO.
           </p>
           <p style={{ fontSize: '0.75rem', color: 'var(--color-emerald-primary)', fontWeight: '600', marginBottom: '24px' }}>
             Último backup: {formatTime(lastBackup)}

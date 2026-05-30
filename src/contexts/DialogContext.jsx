@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import ProModal from '../components/ProModal';
 
 const DialogContext = createContext();
 
@@ -8,6 +9,7 @@ export function useDialog() {
 
 export function DialogProvider({ children }) {
   const [dialogs, setDialogs] = useState([]);
+  const [isProModalOpen, setIsProModalOpen] = useState(false);
 
   const showDialog = useCallback(({ title, message, type = 'alert', onConfirm = () => {}, onCancel = () => {} }) => {
     const id = Date.now().toString();
@@ -32,8 +34,11 @@ export function DialogProvider({ children }) {
     });
   };
 
+  const showProModal = () => setIsProModalOpen(true);
+  const closeProModal = () => setIsProModalOpen(false);
+
   return (
-    <DialogContext.Provider value={{ showAlert, showConfirm }}>
+    <DialogContext.Provider value={{ showAlert, showConfirm, showProModal }}>
       {children}
       {dialogs.map(dialog => (
         <div key={dialog.id} style={{
@@ -77,6 +82,7 @@ export function DialogProvider({ children }) {
           </div>
         </div>
       ))}
+      <ProModal isOpen={isProModalOpen} onClose={closeProModal} />
     </DialogContext.Provider>
   );
 }

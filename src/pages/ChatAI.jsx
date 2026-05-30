@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getExpenses } from '../services/db';
 import { getCategory } from '../utils/categories';
 import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
-import { getIdToken } from '../services/firebase';
-import { MessageSquarePlus, History, Trash2, ChevronLeft, X } from 'lucide-react';
+import { getIdToken, getUserProStatus } from '../services/firebase';
+import { MessageSquarePlus, History, Trash2, ChevronLeft, X, Sparkles } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 
 export default function ChatAI() {
@@ -14,14 +14,17 @@ export default function ChatAI() {
   const [activeChatId, setActiveChatIdState] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [chatList, setChatList] = useState([]);
+  const [proStatus, setProStatus] = useState({ isPro: false, aiMessageCount: 0 });
   const messagesEndRef = useRef(null);
-  const { showConfirm } = useDialog();
+  const { showConfirm, showProModal } = useDialog();
 
-  // Carregar despesas
+  // Carregar despesas e status pro
   useEffect(() => {
     async function load() {
       const data = await getExpenses();
       setExpenses(data);
+      const pro = await getUserProStatus();
+      setProStatus(pro);
     }
     load();
   }, []);
@@ -92,7 +95,12 @@ export default function ChatAI() {
   }, [messages, isTyping]);
 
   const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+    if (input.trim() === '') return;
+
+    if (!proStatus.isPro && proStatus.aiMessageCount >= 5) {
+      showProModal();
+      return;
+    }
 
     const userText = input.trim();
     const userMsg = { id: Date.now(), text: userText, sender: 'user' };
@@ -174,6 +182,11 @@ export default function ChatAI() {
       if (activeChatId) {
         addMessageToChat(activeChatId, aiMsg);
         refreshChatList();
+      }
+
+      // Update local count assuming success
+      if (!proStatus.isPro) {
+        setProStatus(prev => ({ ...prev, aiMessageCount: prev.aiMessageCount + 1 }));
       }
     } catch (error) {
       console.error(error);
@@ -365,11 +378,27 @@ export default function ChatAI() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div style={{ padding: '0 0 16px 0' }}>
+      {/* Input de Mensagem */}
+      <div className="chat-input-area" style={{ padding: '0 0 16px 0' }}>
+        {!proStatus.isPro && (
+          <div style={{ 
+            fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '8px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+          }}>
+            <Sparkles size={12} color="var(--color-emerald-primary)"/>
+            {proStatus.aiMessageCount >= 5 ? 
+              'Limite gratuito de 5/5 mensagens atingido.' : 
+              `${proStatus.aiMessageCount}/5 mensagens gratuitas enviadas este mês.`
+            }
+          </div>
+        )}
         <div className="glass-card" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', padding: '12px 16px', borderRadius: '24px', background: 'var(--bg-secondary)' }}>
           <textarea 
-            placeholder="Pergunte qualquer coisa..." 
+            placeholder={
+              !proStatus.isPro && proStatus.aiMessageCount >= 5 
+                ? "Limite grátis atingido" 
+                : "Pergunte qualquer coisa..."
+            }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}

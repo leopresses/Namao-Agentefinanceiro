@@ -87,3 +87,33 @@ export const loadCloudBackup = async () => {
   }
   return { expenses: [], chats: null };
 };
+
+// =============================================
+// Funções NaMão Pro (Freemium)
+// =============================================
+
+export const getUserProStatus = async () => {
+  const uid = getSecureUserId();
+  if (!uid) return { isPro: false, aiMessageCount: 0 };
+
+  const userRef = doc(db, 'users', uid);
+  const docSnap = await getDoc(userRef);
+  
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    
+    // Se mudou o mês, o limite reseta logicamente aqui
+    // (O backend fará a mesma checagem de forma segura)
+    let count = data.aiMessageCount || 0;
+    if (data.aiLastMessageMonth !== currentMonth) {
+      count = 0;
+    }
+
+    return {
+      isPro: !!data.isPro,
+      aiMessageCount: count
+    };
+  }
+  return { isPro: false, aiMessageCount: 0 };
+};

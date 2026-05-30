@@ -46,6 +46,37 @@ export default async function handler(req, res) {
 
   console.log(`[Chat API] Requisição autenticada do UID: ${decodedUser.uid}`);
 
+  const db = admin.firestore();
+  const userRef = db.collection('users').doc(decodedUser.uid);
+  
+  let isPro = false;
+  let aiMessageCount = 0;
+  let aiLastMessageMonth = '';
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+  try {
+    const docSnap = await userRef.get();
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      isPro = !!data.isPro;
+      aiLastMessageMonth = data.aiLastMessageMonth || '';
+      aiMessageCount = data.aiMessageCount || 0;
+      
+      // Reseta a contagem se for um novo mês
+      if (aiLastMessageMonth !== currentMonth) {
+        aiMessageCount = 0;
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao buscar dados do usuário:', err);
+    return res.status(500).json({ error: 'Erro de validação do usuário.' });
+  }
+
+  // Verifica o limite Freemium
+  if (!isPro && aiMessageCount >= 5) {
+    return res.status(403).json({ error: 'Limite de mensagens gratuitas atingido. Assine o plano Pro para continuar.' });
+  }
+
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     console.error('GROQ_API_KEY não definida no ambiente.');
@@ -80,6 +111,15 @@ export default async function handler(req, res) {
     });
 
     const text = chatCompletion.choices[0]?.message?.content || "Desculpe, não consegui processar a resposta.";
+    
+    // Se não for PRO, incrementa a contagem de uso após sucesso
+    if (!isPro) {
+      await userRef.set({
+        aiMessageCount: aiMessageCount + 1,
+        aiLastMessageMonth: currentMonth
+      }, { merge: true });
+    }
+
     res.status(200).json({ text });
   } catch (error) {
     console.error('Erro na API do Groq:', error);
