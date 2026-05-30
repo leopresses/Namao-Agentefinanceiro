@@ -1,23 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getExpenses } from '../services/db';
 import { getAllChats } from '../services/chatDb';
-import { saveCloudBackup } from '../services/firebase';
+import { saveCloudBackup, getSecureUserId } from '../services/firebase';
 
 export function useAutoSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState('idle'); // 'idle', 'syncing', 'success', 'error'
 
   const doSync = useCallback(async () => {
-    const userUid = localStorage.getItem('namao_user_uid');
+    // SEGURANÇA: userId vem do Firebase Auth, não do localStorage
+    const uid = getSecureUserId();
     const isGoogle = localStorage.getItem('namao_auth_token') === 'google';
 
-    if (!isGoogle || !userUid) return;
+    if (!isGoogle || !uid) return;
 
     setSyncStatus('syncing');
     try {
       const data = await getExpenses();
       const chats = getAllChats();
-      await saveCloudBackup(userUid, data, chats);
+      await saveCloudBackup(data, chats); // userId é resolvido internamente via auth.currentUser
       localStorage.setItem('namao_pending_sync', 'false');
       
       const now = new Date().toISOString();
@@ -25,7 +26,7 @@ export function useAutoSync() {
       window.dispatchEvent(new CustomEvent('namao_sync_completed'));
       
       setSyncStatus('success');
-      setTimeout(() => setSyncStatus('idle'), 3000); // Volta ao normal após 3 segundos
+      setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (error) {
       console.error('Erro na sincronização oculta:', error);
       setSyncStatus('error');
@@ -35,7 +36,6 @@ export function useAutoSync() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      // Quando volta a internet, verifica se tem pendência
       if (localStorage.getItem('namao_pending_sync') === 'true') {
         doSync();
       }
@@ -57,7 +57,6 @@ export function useAutoSync() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('namao_data_changed', handleDataChanged);
 
-    // Na inicialização, tenta sincronizar se tiver algo pendente ou se for o backup diário preventivo
     const checkInitialSync = () => {
       if (!navigator.onLine) return;
       
@@ -66,7 +65,6 @@ export function useAutoSync() {
       if (lastSyncStr) {
         const lastSync = new Date(lastSyncStr);
         const diffMs = Date.now() - lastSync.getTime();
-        // Se sincronizou há menos de 24h (86400000ms), não precisa de backup diário
         if (diffMs < 86400000) {
           needsDailySync = false;
         }

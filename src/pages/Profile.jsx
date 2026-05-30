@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
-import { logoutGoogle, saveCloudBackup, loadCloudBackup } from '../services/firebase';
+import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId } from '../services/firebase';
 import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
 import { getAllChats, setAllChats } from '../services/chatDb';
 import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock } from 'lucide-react';
@@ -49,12 +49,12 @@ export default function Profile() {
   };
 
   const handleCloudBackup = async () => {
-    if (!isGoogle || !userUid) return;
+    if (!isGoogle) return;
     setIsSyncing(true);
     try {
       const data = await getExpenses();
       const chats = getAllChats();
-      await saveCloudBackup(userUid, data, chats);
+      await saveCloudBackup(data, chats);
       showAlert('Sucesso', 'Seus dados e conversas com a IA foram salvos com segurança na nuvem do Google!');
     } catch (err) {
       console.error(err);
@@ -65,7 +65,7 @@ export default function Profile() {
   };
 
   const handleCloudRestore = async () => {
-    if (!isGoogle || !userUid) return;
+    if (!isGoogle) return;
     const confirmed = await showConfirm(
       'Restaurar da Nuvem', 
       'Atenção: Isso vai substituir seus dados atuais (lançamentos e conversas com a IA) pelos que estão salvos na Nuvem. Deseja continuar?'
@@ -73,7 +73,7 @@ export default function Profile() {
     if (confirmed) {
       setIsSyncing(true);
       try {
-        const cloudData = await loadCloudBackup(userUid);
+        const cloudData = await loadCloudBackup();
         if (cloudData.expenses.length > 0 || cloudData.chats) {
           await setExpensesData(cloudData.expenses);
           if (cloudData.chats) {

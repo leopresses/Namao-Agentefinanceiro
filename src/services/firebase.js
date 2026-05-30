@@ -1,6 +1,6 @@
 // Firebase - Configuração protegida via variáveis de ambiente do Vite
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -18,7 +18,10 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Funções utilitárias de Autenticação
+// =============================================
+// Funções de Autenticação
+// =============================================
+
 export const loginWithGoogle = async () => {
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
@@ -28,10 +31,35 @@ export const logoutGoogle = async () => {
   return signOut(auth);
 };
 
-// Funções utilitárias de Nuvem (Cloud Firestore)
-export const saveCloudBackup = async (userId, expensesData, chatsData) => {
-  if (!userId) throw new Error("Usuário não autenticado");
-  const userRef = doc(db, 'users', userId);
+// Retorna o UID seguro do Firebase Auth (nunca do localStorage)
+export function getSecureUserId() {
+  const user = auth.currentUser;
+  if (!user) return null;
+  return user.uid;
+}
+
+// Retorna o ID Token JWT para envio ao backend
+export async function getIdToken() {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Usuário não autenticado");
+  return user.getIdToken();
+}
+
+// Observador de estado de autenticação
+export function onAuthChange(callback) {
+  return onAuthStateChanged(auth, callback);
+}
+
+// =============================================
+// Funções de Nuvem (Cloud Firestore)
+// =============================================
+
+// SEGURANÇA: userId vem de auth.currentUser.uid, NUNCA do localStorage
+export const saveCloudBackup = async (expensesData, chatsData) => {
+  const uid = getSecureUserId();
+  if (!uid) throw new Error("Usuário não autenticado");
+
+  const userRef = doc(db, 'users', uid);
   const payload = {
     expenses: expensesData,
     lastBackup: new Date().toISOString()
@@ -42,9 +70,11 @@ export const saveCloudBackup = async (userId, expensesData, chatsData) => {
   await setDoc(userRef, payload, { merge: true });
 };
 
-export const loadCloudBackup = async (userId) => {
-  if (!userId) throw new Error("Usuário não autenticado");
-  const userRef = doc(db, 'users', userId);
+export const loadCloudBackup = async () => {
+  const uid = getSecureUserId();
+  if (!uid) throw new Error("Usuário não autenticado");
+
+  const userRef = doc(db, 'users', uid);
   const docSnap = await getDoc(userRef);
   
   if (docSnap.exists()) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getExpenses } from '../services/db';
 import { getCategory } from '../utils/categories';
 import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
+import { getIdToken } from '../services/firebase';
 import { MessageSquarePlus, History, Trash2, ChevronLeft, X } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 
@@ -139,11 +140,21 @@ export default function ChatAI() {
       `;
 
       const apiUrl = import.meta.env.VITE_API_URL || 'https://namao-agentefinanceiro.onrender.com/api/chat';
+      
+      // SEGURANÇA: Envia Firebase ID Token (JWT) ao invés de secret estático
+      let authHeader = {};
+      try {
+        const token = await getIdToken();
+        authHeader = { 'Authorization': `Bearer ${token}` };
+      } catch (e) {
+        // Usuário não autenticado via Google, continuar sem token
+      }
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-secret': import.meta.env.VITE_LOCAL_API_SECRET || ''
+          ...authHeader
         },
         body: JSON.stringify({ userText, contextData }),
       });
