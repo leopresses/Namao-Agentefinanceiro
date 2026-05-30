@@ -68,8 +68,10 @@ export default async function handler(req, res) {
       }
     }
   } catch (err) {
-    console.error('Erro ao buscar dados do usuário:', err);
-    return res.status(500).json({ error: 'Erro de validação do usuário.' });
+    console.error('Erro ao buscar dados do Firestore (provavelmente falta o FIREBASE_SERVICE_ACCOUNT):', err.message);
+    // Se falhar a conexão com o banco (ex: falta de credencial na Vercel),
+    // vamos permitir a mensagem mas assumir que não é PRO temporariamente
+    // para não quebrar o app inteiro.
   }
 
   // Verifica o limite Freemium
@@ -113,11 +115,16 @@ export default async function handler(req, res) {
     const text = chatCompletion.choices[0]?.message?.content || "Desculpe, não consegui processar a resposta.";
     
     // Se não for PRO, incrementa a contagem de uso após sucesso
+    // Se não for PRO, incrementa a contagem de uso após sucesso
     if (!isPro) {
-      await userRef.set({
-        aiMessageCount: aiMessageCount + 1,
-        aiLastMessageMonth: currentMonth
-      }, { merge: true });
+      try {
+        await userRef.set({
+          aiMessageCount: aiMessageCount + 1,
+          aiLastMessageMonth: currentMonth
+        }, { merge: true });
+      } catch (err) {
+        console.error('Falha ao incrementar contagem (provavelmente falta Service Account):', err.message);
+      }
     }
 
     res.status(200).json({ text });
