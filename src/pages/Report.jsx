@@ -56,9 +56,11 @@ export default function Report() {
       if (item.type === 'income') {
         currentBalance += item.amount;
       } else if (item.type === 'expense') {
-        if (item.status !== 'planned') {
+        if (item.status === 'paid') {
           currentBalance -= item.amount;
-          
+        }
+
+        if (item.status !== 'planned') {
           const cat = item.category || 'outros';
           catTotals[cat] = (catTotals[cat] || 0) + item.amount;
           totalExp += item.amount;

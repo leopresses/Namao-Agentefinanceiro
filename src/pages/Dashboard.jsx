@@ -42,7 +42,7 @@ export default function Dashboard() {
       if (item.type === 'income') {
         currentBalance += item.amount;
       } else if (item.type === 'expense') {
-        if (item.status !== 'planned') {
+        if (item.status === 'paid') {
           currentBalance -= item.amount;
         }
         if (item.status === 'unpaid') {
