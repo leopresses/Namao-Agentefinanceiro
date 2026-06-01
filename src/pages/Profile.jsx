@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
-import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId, getUserProStatus } from '../services/firebase';
+import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId, getUserProStatus, onAuthChange } from '../services/firebase';
 import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
 import { getAllChats, setAllChats } from '../services/chatDb';
 import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star } from 'lucide-react';
