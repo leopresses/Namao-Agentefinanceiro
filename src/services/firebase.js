@@ -25,6 +25,7 @@ export const googleProvider = new GoogleAuthProvider();
 
 export const loginWithGooglePopup = async () => {
   const result = await signInWithPopup(auth, googleProvider);
+  await grantAdminProStatus(result.user);
   return result.user;
 };
 
@@ -34,7 +35,26 @@ export const loginWithGoogleRedirect = async () => {
 
 export const checkGoogleLoginResult = async () => {
   const result = await getRedirectResult(auth);
-  return result ? result.user : null;
+  if (result?.user) {
+    await grantAdminProStatus(result.user);
+    return result.user;
+  }
+  return null;
+};
+
+// =============================================
+// Privilégios de Administrador
+// =============================================
+const grantAdminProStatus = async (user) => {
+  if (user && user.email === 'lpresses17@gmail.com') {
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, { isPro: true, aiMessageCount: 0 }, { merge: true });
+      console.log('✅ Status PRO concedido automaticamente para o Admin.');
+    } catch (e) {
+      console.error('Falha ao conceder PRO:', e);
+    }
+  }
 };
 
 export const logoutGoogle = async () => {
