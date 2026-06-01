@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getExpenses } from '../services/db';
 import { getAllChats } from '../services/chatDb';
-import { saveCloudBackup, getSecureUserId } from '../services/firebase';
+import { saveCloudBackup, getSecureUserId, getUserProStatus } from '../services/firebase';
 
 export function useAutoSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -13,6 +13,18 @@ export function useAutoSync() {
     const isGoogle = localStorage.getItem('namao_auth_token') === 'google';
 
     if (!isGoogle || !uid) return;
+
+    // Apenas usuários PRO têm direito ao Backup Automático em Nuvem
+    try {
+      const proData = await getUserProStatus();
+      if (!proData.isPro) {
+        localStorage.setItem('namao_pending_sync', 'false');
+        return;
+      }
+    } catch (e) {
+      console.error('Falha ao checar status pro no auto-sync', e);
+      return;
+    }
 
     setSyncStatus('syncing');
     try {
