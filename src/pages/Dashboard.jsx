@@ -84,28 +84,40 @@ export default function Dashboard() {
 
   return (
     <div className="animate-fade-up">
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
         <h1 className="app-title" style={{ margin: 0 }}>
           <img src="/logo.png" alt="NaMão Logo" className="logo-icon" />
           NaMão
         </h1>
-        {/* Banner PRO no cabeçalho */}
-        {!isPro && (
-          <button 
-            onClick={showProModal}
-            className="animate-pulse-glow"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
-              background: 'linear-gradient(135deg, var(--color-emerald-primary) 0%, var(--color-emerald-dark) 100%)',
-              color: 'white', padding: '6px 12px', borderRadius: '16px',
-              fontWeight: 'bold', fontSize: '0.8rem', border: 'none', cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(16,185,129,0.3)', textTransform: 'uppercase'
-            }}
-          >
-            <Star size={14} fill="currentColor" /> Seja PRO
-          </button>
-        )}
       </header>
+
+      {/* Banner PRO (Movido para baixo do cabeçalho para não encavalar com os ícones flutuantes) */}
+      {!isPro && (
+        <div 
+          className="animate-pulse-glow"
+          onClick={showProModal}
+          style={{
+            background: 'linear-gradient(135deg, var(--color-emerald-primary) 0%, var(--color-emerald-dark) 100%)',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            color: 'white',
+            cursor: 'pointer',
+            boxShadow: '0 8px 24px rgba(16,185,129,0.3)',
+          }}
+        >
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+              <Star size={20} fill="currentColor" /> Seja PRO Agora
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9, marginTop: '4px' }}>IA Ilimitada e Backup Seguro na Nuvem</p>
+          </div>
+          <ChevronRight size={24} />
+        </div>
+      )}
 
       {/* Seletor de Mês */}
       <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', marginBottom: '24px' }}>
