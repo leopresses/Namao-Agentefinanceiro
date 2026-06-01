@@ -1,6 +1,6 @@
 // Firebase - Configuração protegida via variáveis de ambiente do Vite
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -23,9 +23,18 @@ export const googleProvider = new GoogleAuthProvider();
 // Funções de Autenticação
 // =============================================
 
-export const loginWithGoogle = async () => {
+export const loginWithGooglePopup = async () => {
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
+};
+
+export const loginWithGoogleRedirect = async () => {
+  await signInWithRedirect(auth, googleProvider);
+};
+
+export const checkGoogleLoginResult = async () => {
+  const result = await getRedirectResult(auth);
+  return result ? result.user : null;
 };
 
 export const logoutGoogle = async () => {

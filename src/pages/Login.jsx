@@ -1,22 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginWithGoogle } from '../services/firebase';
+import { loginWithGooglePopup, loginWithGoogleRedirect, checkGoogleLoginResult } from '../services/firebase';
 
 export default function Login() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Checa se o usuário acabou de voltar de um redirecionamento do Google (mobile)
+  useEffect(() => {
+    async function handleRedirect() {
+      try {
+        setIsLoading(true);
+        const user = await checkGoogleLoginResult();
+        if (user) {
+          localStorage.setItem('namao_auth_token', 'google');
+          localStorage.setItem('namao_user_uid', user.uid);
+          localStorage.setItem('namao_user_name', user.displayName || '');
+          localStorage.setItem('namao_user_photo', user.photoURL || '');
+          navigate('/');
+        }
+      } catch (err) {
+        console.error('Firebase Redirect Error:', err);
+        setError('Erro ao concluir o login via Google.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    handleRedirect();
+  }, [navigate]);
+
   const handleGoogleLogin = async () => {
     setError('');
     setIsLoading(true);
+    
+    // Detecta se é mobile (iPhone/Android). Em mobile, signInWithRedirect é muito mais confiável e evita bloqueios
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
     try {
-      const user = await loginWithGoogle();
-      localStorage.setItem('namao_auth_token', 'google');
-      localStorage.setItem('namao_user_uid', user.uid);
-      localStorage.setItem('namao_user_name', user.displayName || '');
-      localStorage.setItem('namao_user_photo', user.photoURL || '');
-      navigate('/');
+      if (isMobile) {
+        // Redireciona a página inteira (o código abaixo do await não rodará até o usuário voltar e o useEffect pegar)
+        await loginWithGoogleRedirect();
+      } else {
+        // Usa popup para desktop (mais rápido)
+        const user = await loginWithGooglePopup();
+        localStorage.setItem('namao_auth_token', 'google');
+        localStorage.setItem('namao_user_uid', user.uid);
+        localStorage.setItem('namao_user_name', user.displayName || '');
+        localStorage.setItem('namao_user_photo', user.photoURL || '');
+        navigate('/');
+      }
     } catch (err) {
       console.error('Firebase Auth Error:', err);
       const code = err?.code || '';
@@ -33,7 +66,6 @@ export default function Login() {
         msg = `Erro Firebase: ${code}`;
       }
       setError(msg);
-    } finally {
       setIsLoading(false);
     }
   };
