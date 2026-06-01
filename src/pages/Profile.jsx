@@ -185,15 +185,22 @@ export default function Profile() {
           <p style={{ color: 'var(--color-emerald-dark)', fontSize: '0.85rem', fontWeight: '600', marginBottom: '16px' }}>Conectado via Google</p>
           
           {isPro ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255, 215, 0, 0.15)', color: '#D4AF37', padding: '6px 16px', borderRadius: '20px', fontWeight: 'bold', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
-              <Star size={16} fill="currentColor" /> NaMão PRO
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255, 215, 0, 0.15)', color: '#D4AF37', padding: '8px 20px', borderRadius: '24px', fontWeight: 'bold', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
+              <Star size={18} fill="currentColor" /> NaMão PRO
             </div>
           ) : (
             <button 
               onClick={showProModal}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--color-emerald-primary)', color: 'white', padding: '8px 24px', borderRadius: '24px', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+              className="animate-pulse-glow"
+              style={{ 
+                display: 'flex', alignItems: 'center', gap: '8px', 
+                background: 'linear-gradient(135deg, var(--color-emerald-primary) 0%, var(--color-emerald-dark) 100%)', 
+                color: 'white', padding: '12px 32px', borderRadius: '30px', 
+                fontWeight: 'bold', fontSize: '1.1rem', border: 'none', cursor: 'pointer', 
+                boxShadow: '0 8px 24px rgba(16,185,129,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px'
+              }}
             >
-              <Star size={16} fill="currentColor" /> Seja PRO
+              <Star size={20} fill="currentColor" /> Seja PRO Agora
             </button>
           )}
         </div>

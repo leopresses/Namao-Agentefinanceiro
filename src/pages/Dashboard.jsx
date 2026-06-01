@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { getExpenses } from '../services/db';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { getCategory } from '../utils/categories';
+import { getUserProStatus } from '../services/firebase';
+import { useDialog } from '../contexts/DialogContext';
 
 export default function Dashboard() {
   const [allExpenses, setAllExpenses] = useState([]);
   const [displayedExpenses, setDisplayedExpenses] = useState([]);
   const [balance, setBalance] = useState(0);
   const [toPay, setToPay] = useState(0);
+  const [isPro, setIsPro] = useState(true); // Assume true initially to avoid flicker
+  const { showProModal } = useDialog();
   
   // Date tracking for Month Filter
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -19,6 +23,9 @@ export default function Dashboard() {
       // Sort by date desc
       data.sort((a, b) => new Date(b.date) - new Date(a.date));
       setAllExpenses(data);
+      
+      const proData = await getUserProStatus();
+      setIsPro(proData.isPro);
     }
     loadData();
   }, []);
@@ -77,11 +84,27 @@ export default function Dashboard() {
 
   return (
     <div className="animate-fade-up">
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <h1 className="app-title">
+      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 className="app-title" style={{ margin: 0 }}>
           <img src="/logo.png" alt="NaMão Logo" className="logo-icon" />
           NaMão
         </h1>
+        {/* Banner PRO no cabeçalho */}
+        {!isPro && (
+          <button 
+            onClick={showProModal}
+            className="animate-pulse-glow"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              background: 'linear-gradient(135deg, var(--color-emerald-primary) 0%, var(--color-emerald-dark) 100%)',
+              color: 'white', padding: '6px 12px', borderRadius: '16px',
+              fontWeight: 'bold', fontSize: '0.8rem', border: 'none', cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(16,185,129,0.3)', textTransform: 'uppercase'
+            }}
+          >
+            <Star size={14} fill="currentColor" /> Seja PRO
+          </button>
+        )}
       </header>
 
       {/* Seletor de Mês */}
