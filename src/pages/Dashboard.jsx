@@ -11,7 +11,7 @@ export default function Dashboard() {
   const [displayedExpenses, setDisplayedExpenses] = useState([]);
   const [balance, setBalance] = useState(0);
   const [toPay, setToPay] = useState(0);
-  const [isPro, setIsPro] = useState(true); // Assume true initially to avoid flicker
+  const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
   const { showProModal } = useDialog();
   
   // Date tracking for Month Filter

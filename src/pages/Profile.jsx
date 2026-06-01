@@ -13,7 +13,7 @@ export default function Profile() {
   const [lastBackup, setLastBackup] = useState(localStorage.getItem('namao_last_sync_time'));
   const [theme, setTheme] = useState(localStorage.getItem('namao_theme') || 'light');
   const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('namao_biometric') === 'true');
-  const [isPro, setIsPro] = useState(false);
+  const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
   const { showProModal } = useDialog();
 
   React.useEffect(() => {
@@ -58,6 +58,7 @@ export default function Profile() {
       localStorage.removeItem('namao_user_uid');
       localStorage.removeItem('namao_user_name');
       localStorage.removeItem('namao_user_photo');
+      localStorage.removeItem('namao_is_pro');
       navigate('/login');
     }
   };

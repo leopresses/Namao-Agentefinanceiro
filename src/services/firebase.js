@@ -139,10 +139,15 @@ export const getUserProStatus = async () => {
       count = 0;
     }
 
+    const isPro = !!data.isPro;
+    localStorage.setItem('namao_is_pro', isPro ? 'true' : 'false');
+
     return {
-      isPro: !!data.isPro,
+      isPro,
       aiMessageCount: count
     };
   }
+  
+  localStorage.setItem('namao_is_pro', 'false');
   return { isPro: false, aiMessageCount: 0 };
 };

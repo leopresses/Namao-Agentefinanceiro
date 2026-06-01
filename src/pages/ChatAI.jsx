@@ -14,7 +14,7 @@ export default function ChatAI() {
   const [activeChatId, setActiveChatIdState] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [chatList, setChatList] = useState([]);
-  const [proStatus, setProStatus] = useState({ isPro: false, aiMessageCount: 0 });
+  const [proStatus, setProStatus] = useState({ isPro: localStorage.getItem('namao_is_pro') === 'true', aiMessageCount: 0 });
   const messagesEndRef = useRef(null);
   const { showConfirm, showProModal } = useDialog();
 
