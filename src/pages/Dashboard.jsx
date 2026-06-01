@@ -3,7 +3,7 @@ import { getExpenses } from '../services/db';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { getCategory } from '../utils/categories';
-import { getUserProStatus } from '../services/firebase';
+import { getUserProStatus, onAuthChange } from '../services/firebase';
 import { useDialog } from '../contexts/DialogContext';
 
 export default function Dashboard() {
@@ -23,11 +23,16 @@ export default function Dashboard() {
       // Sort by date desc
       data.sort((a, b) => new Date(b.date) - new Date(a.date));
       setAllExpenses(data);
-      
-      const proData = await getUserProStatus();
-      setIsPro(proData.isPro);
     }
     loadData();
+
+    const unsubscribe = onAuthChange(async (user) => {
+      if (user) {
+        const proData = await getUserProStatus();
+        setIsPro(proData.isPro);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {

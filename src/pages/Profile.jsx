@@ -22,10 +22,18 @@ export default function Profile() {
     };
     window.addEventListener('namao_sync_completed', handleSyncCompleted);
     
-    // Load Pro Status
-    getUserProStatus().then(status => setIsPro(status.isPro));
+    // Load Pro Status exactly when auth is ready
+    const unsubscribe = onAuthChange(async (user) => {
+      if (user) {
+        const status = await getUserProStatus();
+        setIsPro(status.isPro);
+      }
+    });
 
-    return () => window.removeEventListener('namao_sync_completed', handleSyncCompleted);
+    return () => {
+      window.removeEventListener('namao_sync_completed', handleSyncCompleted);
+      unsubscribe();
+    };
   }, []);
 
   const formatTime = (isoString) => {

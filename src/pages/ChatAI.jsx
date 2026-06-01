@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getExpenses } from '../services/db';
 import { getCategory } from '../utils/categories';
 import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
-import { getIdToken, getUserProStatus } from '../services/firebase';
+import { getIdToken, getUserProStatus, onAuthChange } from '../services/firebase';
 import { MessageSquarePlus, History, Trash2, ChevronLeft, X, Sparkles } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 
@@ -23,10 +23,16 @@ export default function ChatAI() {
     async function load() {
       const data = await getExpenses();
       setExpenses(data);
-      const pro = await getUserProStatus();
-      setProStatus(pro);
     }
     load();
+    
+    const unsubscribe = onAuthChange(async (user) => {
+      if (user) {
+        const pro = await getUserProStatus();
+        setProStatus(pro);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   // Carregar ou criar chat ativo ao montar
