@@ -1,13 +1,30 @@
 import admin from 'firebase-admin';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 
+// Inicializa Firebase Admin usando Service Account (necessário para escrita no banco)
 if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'namaowebapp'
-  });
+  try {
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (serviceAccountJson) {
+      const serviceAccount = JSON.parse(serviceAccountJson);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: serviceAccount.project_id
+      });
+      console.log('✅ Firebase Admin inicializado com Service Account no Webhook.');
+    } else {
+      admin.initializeApp({
+        projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'namaowebapp'
+      });
+      console.warn('⚠️ Firebase Admin sem Service Account. Gravação no banco falhará.');
+    }
+  } catch (err) {
+    console.error('❌ Erro na inicialização do Firebase Admin:', err);
+    admin.initializeApp({ projectId: 'namaowebapp' });
+  }
 }
 
 export default async function handler(req, res) {
-  // Webhooks geralmente são POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido.' });
   }
@@ -15,25 +32,50 @@ export default async function handler(req, res) {
   try {
     const { action, data, type } = req.body;
     
-    // O Mercado Pago envia o ID do pagamento dentro de data.id quando type === 'payment'
-    // Mas, como este é apenas um boilerplate de webhook, vamos simular a leitura do status.
-    // Em produção, você faria um GET na API do MP usando este ID para confirmar o status:
-    // const paymentId = data?.id;
-    
-    // Exemplo simplificado confiando no payload (Não recomendado sem checar a assinatura/API do MP)
-    const paymentStatus = req.body.action || type; 
+    // O Mercado Pago envia a notificação com type === 'payment'
+    if (type === 'payment' && data && data.id) {
+      const paymentId = data.id;
 
-    // O Webhook do MercadoPago pode variar bastante. Para garantir que este código funcione de exemplo:
-    // Nós lemos o external_reference se ele vier no payload, ou simulamos sucesso se for teste
-    // Ideal: GET https://api.mercadopago.com/v1/payments/${paymentId} para pegar o external_reference
-    
-    // ATENÇÃO: Código simplificado para fins educacionais da IA
-    console.log('[Webhook MP] Payload recebido:', JSON.stringify(req.body));
-    
+      const mpAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+      if (!mpAccessToken) {
+        throw new Error('MERCADOPAGO_ACCESS_TOKEN não configurado.');
+      }
+
+      // Configurar o cliente Mercado Pago
+      const client = new MercadoPagoConfig({ accessToken: mpAccessToken });
+      const paymentClient = new Payment(client);
+
+      // Buscar detalhes ATUALIZADOS do pagamento diretamente da fonte segura (Mercado Pago)
+      const payment = await paymentClient.get({ id: paymentId });
+      
+      console.log(`[Webhook] Status do Pagamento ${paymentId}: ${payment.status}`);
+
+      // Se o pagamento foi aprovado, vamos dar o PRO para o usuário
+      if (payment.status === 'approved') {
+        const uid = payment.external_reference; // Recupera o UID que enviamos no Checkout
+        
+        if (!uid) {
+          throw new Error('Pagamento aprovado, mas sem external_reference (UID) associado.');
+        }
+
+        // Atualiza o banco de dados do usuário no Firestore
+        const db = admin.firestore();
+        await db.collection('users').doc(uid).set({
+          isPro: true,
+          aiMessageCount: 0 // Reseta a contagem de mensagens de IA
+        }, { merge: true });
+
+        console.log(`✅ [Webhook] Usuário ${uid} atualizado para PRO com sucesso!`);
+      }
+    }
+
+    // Mercado Pago exige que você responda com 200 OK rapidamente
     res.status(200).send('OK');
 
   } catch (error) {
-    console.error('[Webhook MP] Erro:', error);
-    res.status(500).json({ error: 'Erro interno.' });
+    console.error('[Webhook MP] Erro ao processar:', error);
+    // Retornamos 200 mesmo no erro para que o Mercado Pago não fique retentando infinitamente se for um erro de código nosso
+    // (Em produção mais complexa, você retornaria erro se quisesse que o MP reenviasse depois)
+    res.status(200).send('Erro processado');
   }
 }
