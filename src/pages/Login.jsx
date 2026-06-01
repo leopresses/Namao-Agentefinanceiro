@@ -34,37 +34,31 @@ export default function Login() {
     setError('');
     setIsLoading(true);
     
-    // Detecta se é mobile (iPhone/Android). Em mobile, signInWithRedirect é muito mais confiável e evita bloqueios
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
     try {
-      if (isMobile) {
-        // Redireciona a página inteira (o código abaixo do await não rodará até o usuário voltar e o useEffect pegar)
-        await loginWithGoogleRedirect();
-      } else {
-        // Usa popup para desktop (mais rápido)
-        const user = await loginWithGooglePopup();
-        localStorage.setItem('namao_auth_token', 'google');
-        localStorage.setItem('namao_user_uid', user.uid);
-        localStorage.setItem('namao_user_name', user.displayName || '');
-        localStorage.setItem('namao_user_photo', user.photoURL || '');
-        navigate('/');
-      }
+      // Usamos SEMPRE Popup porque o Redirect tem um bug crônico no Firebase com navegadores mobile modernos (Safari/Chrome bloqueiam cookies de terceiros cross-domain, fazendo o redirect retornar null).
+      const user = await loginWithGooglePopup();
+      localStorage.setItem('namao_auth_token', 'google');
+      localStorage.setItem('namao_user_uid', user.uid);
+      localStorage.setItem('namao_user_name', user.displayName || '');
+      localStorage.setItem('namao_user_photo', user.photoURL || '');
+      navigate('/');
     } catch (err) {
       console.error('Firebase Auth Error:', err);
       const code = err?.code || '';
       let msg = 'Erro ao autenticar com o Google.';
+      
       if (code === 'auth/popup-closed-by-user') {
         msg = 'Você fechou a janela de login antes de finalizar.';
       } else if (code === 'auth/popup-blocked') {
-        msg = 'O navegador bloqueou o popup. Permita popups para este site.';
+        msg = '⚠️ ALERTA: Seu navegador bloqueou a janela do Google! Se você está abrindo pelo Instagram/Facebook, clique nos 3 pontinhos no canto superior e escolha "Abrir no Navegador" (Safari/Chrome).';
       } else if (code === 'auth/unauthorized-domain') {
-        msg = 'Este domínio não está autorizado no Firebase. Adicione "localhost" nos domínios autorizados.';
+        msg = 'Este domínio não está autorizado no Firebase. Adicione o domínio na aba Authentication > Settings.';
       } else if (code === 'auth/configuration-not-found') {
         msg = 'O provedor Google não está ativado no Firebase Console.';
       } else if (code) {
         msg = `Erro Firebase: ${code}`;
       }
+      
       setError(msg);
       setIsLoading(false);
     }
