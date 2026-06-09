@@ -45,7 +45,7 @@ const Sidebar = () => {
           </NavLink>
           <NavLink to="/chat" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <Bot size={24} />
-            <span>Agente IA</span>
+            <span>NaMão IA</span>
           </NavLink>
           <NavLink to="/profile" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <User size={24} />
@@ -54,7 +54,7 @@ const Sidebar = () => {
         </nav>
 
         <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-          Versão Desktop Beta
+          Criado por Leonardo Presses
         </div>
       </aside>
 
