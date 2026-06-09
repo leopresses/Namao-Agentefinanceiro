@@ -18,27 +18,31 @@ export default function HelpModal() {
     return (
       <button 
         onClick={() => setIsOpen(true)}
+        className="glass-card"
         style={{
           position: 'fixed',
           top: isDesktop ? 'auto' : '20px',
           bottom: isDesktop ? '24px' : 'auto',
           left: isDesktop ? '24px' : 'auto',
           right: isDesktop ? 'auto' : '20px',
-          width: '40px',
-          height: '40px',
-          borderRadius: '20px',
-          background: 'var(--color-emerald-primary)',
-          color: 'white',
-          border: 'none',
+          width: '36px',
+          height: '36px',
+          borderRadius: '18px',
+          padding: 0,
+          background: 'var(--glass-bg)',
+          backdropFilter: 'blur(8px)',
+          color: 'var(--text-secondary)',
+          border: '1px solid var(--glass-border)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+          boxShadow: 'var(--glass-shadow)',
           zIndex: 1000,
           cursor: 'pointer'
         }}
+        aria-label="Ajuda"
       >
-        <HelpCircle size={24} />
+        <HelpCircle size={20} />
       </button>
     );
   }

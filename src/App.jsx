@@ -22,8 +22,13 @@ function SyncStatusBadge() {
   const { isOnline, syncStatus } = useAutoSync();
   const isDesktop = useMediaQuery('(min-width: 768px)');
   
+  // Esconde completamente o badge se estiver apenas online e ocioso (deixa o layout mais limpo)
+  if (isOnline && (syncStatus === 'idle' || syncStatus === 'success')) {
+    return null;
+  }
+
   return (
-    <div style={{
+    <div className="animate-fade-up" style={{
       position: 'fixed',
       top: '20px',
       right: isDesktop ? '180px' : '65px',
@@ -39,13 +44,11 @@ function SyncStatusBadge() {
       zIndex: 1000,
       fontSize: '0.75rem',
       fontWeight: '600',
-      color: isOnline ? 'var(--color-emerald-dark)' : 'var(--text-secondary)'
+      color: 'var(--text-secondary)'
     }}>
       {!isOnline && <><WifiOff size={14} color="var(--color-crimson-primary)" /> Offline</>}
       {isOnline && syncStatus === 'syncing' && <><RefreshCw size={14} className="spin" color="var(--color-emerald-primary)" /> Salvando...</>}
-      {isOnline && syncStatus === 'success' && <><Check size={14} color="var(--color-emerald-primary)" /> Nuvem OK</>}
-      {isOnline && syncStatus === 'idle' && <><Wifi size={14} /> Online</>}
-      {isOnline && syncStatus === 'error' && <><WifiOff size={14} color="var(--color-crimson-primary)" /> Erro</>}
+      {isOnline && syncStatus === 'error' && <><WifiOff size={14} color="var(--color-crimson-primary)" /> Erro de Sincronização</>}
     </div>
   );
 }
