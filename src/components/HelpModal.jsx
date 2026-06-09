@@ -59,7 +59,7 @@ export default function HelpModal() {
       zIndex: 2000,
       padding: '24px'
     }}>
-      <div className="glass-card animate-fade-up" style={{ width: '100%', maxWidth: '400px', position: 'relative', background: 'var(--bg-primary)' }}>
+      <div className="glass-card animate-fade-up" style={{ width: '100%', maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', background: 'var(--bg-primary)' }}>
         <button 
           onClick={() => setIsOpen(false)}
           style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--text-secondary)' }}
@@ -73,7 +73,7 @@ export default function HelpModal() {
         
         <div style={{ color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.6' }}>
           <p style={{ marginBottom: '12px' }}>
-            O <strong>NaMão</strong> é o seu Agente Financeiro Pessoal Inteligente. Veja tudo o que você pode fazer:
+            O <strong>NaMão</strong> é o seu Agente Financeiro Inteligente. Veja tudo o que você pode fazer:
           </p>
           <ul style={{ paddingLeft: '20px', marginBottom: '16px', fontSize: '0.85rem' }}>
             <li style={{ marginBottom: '8px' }}><strong>➕ Lançamentos:</strong> Use o botão central para adicionar Rendas ou Despesas. O Saldo do Mês é atualizado automaticamente (Rendas - Todas as Despesas).</li>
@@ -85,7 +85,7 @@ export default function HelpModal() {
           
           <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '0.85rem' }}>
             <strong>🤖 Inteligência Artificial Integrada</strong><br />
-            Acesse a aba "Chat" para conversar com nosso Agente de IA. Ele lê seus dados financeiros e te dá conselhos personalizados, análises de gastos e tira dúvidas sobre economia!
+            Acesse a aba "Chat" para conversar com a <strong>NaMão IA</strong>. Ela lê seus dados financeiros e te dá conselhos personalizados, análises de gastos e tira dúvidas sobre economia!
           </div>
         </div>
         
