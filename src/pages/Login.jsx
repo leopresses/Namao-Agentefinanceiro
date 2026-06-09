@@ -69,7 +69,7 @@ export default function Login() {
       <div className="glass-card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', background: 'var(--bg-primary)' }}>
         <img src="/app_icon.png" alt="NaMão Logo" style={{ width: '80px', height: '80px', marginBottom: '8px', filter: 'drop-shadow(0 4px 6px rgba(16, 185, 129, 0.2))' }} />
         <h1 className="app-title" style={{ fontSize: '2.5rem', marginBottom: '8px', color: 'var(--color-emerald-primary)', justifyContent: 'center' }}>NaMão</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>Seu Agente Financeiro Pessoal</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>Seu Agente Financeiro Inteligente</p>
         
         <div style={{ display: 'inline-block', padding: '6px 12px', borderRadius: '16px', background: 'rgba(16,185,129,0.1)', color: 'var(--color-emerald-dark)', fontSize: '0.75rem', fontWeight: '600', marginBottom: '24px' }}>
           ☁️ Backup em Nuvem Integrado
