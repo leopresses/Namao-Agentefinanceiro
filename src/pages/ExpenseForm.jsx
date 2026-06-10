@@ -146,13 +146,13 @@ export default function ExpenseForm() {
 
           <div className="input-group">
             <label className="input-label">Categoria</label>
-            <div className="hide-scrollbar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '8px' }}>
               {CATEGORIES.map(cat => (
                 <div 
                   key={cat.id}
                   onClick={() => setCategory(cat.id)}
                   style={{ 
-                    padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    padding: '8px 16px', borderRadius: '20px', cursor: 'pointer',
                     background: category === cat.id ? 'var(--color-emerald-primary)' : 'var(--bg-secondary)',
                     color: category === cat.id ? '#fff' : 'var(--text-primary)',
                     border: `1px solid ${category === cat.id ? 'var(--color-emerald-primary)' : 'var(--glass-border)'}`,
