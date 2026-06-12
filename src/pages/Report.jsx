@@ -154,10 +154,18 @@ export default function Report() {
       
       const desc = `"${item.description.replace(/"/g, '""')}"`;
       
-      return [item.date, desc, catLabel, item.amount, tipo, status].join(',');
+      // Formata a data para o padrão brasileiro DD/MM/YYYY
+      const [year, month, day] = item.date.split('-');
+      const formattedDate = `${day}/${month}/${year}`;
+      
+      // Formata o valor trocando ponto por vírgula para o Excel reconhecer como número no Brasil
+      const formattedAmount = item.amount.toFixed(2).replace('.', ',');
+      
+      // Usar ponto e vírgula (;) é obrigatório para o Excel em português dividir as colunas
+      return [formattedDate, desc, catLabel, formattedAmount, tipo, status].join(';');
     });
 
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows].join('\n');
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(';'), ...rows].join('\n');
     const encodedUri = encodeURI(csvContent);
     
     const link = document.createElement("a");
