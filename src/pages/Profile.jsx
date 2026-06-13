@@ -262,6 +262,29 @@ export default function Profile() {
         </div>
       )}
 
+      {/* Planejamento */}
+      <div className="glass-card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          📈 Planejamento
+        </h3>
+        
+        <div 
+          onClick={() => navigate('/budgets')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '1.2rem' }}>🎯</span>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-primary)', fontWeight: '500' }}>Limites de Orçamento</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Defina teto de gastos mensais</div>
+            </div>
+          </div>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
+        </div>
+      </div>
+
       {/* Aparência e Segurança */}
       <div className="glass-card" style={{ marginBottom: '24px' }}>
         <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>

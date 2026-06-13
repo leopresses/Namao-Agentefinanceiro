@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getExpenses } from '../services/db';
+import { getExpenses, getBudgets } from '../services/db';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { getCategory } from '../utils/categories';
@@ -11,6 +11,8 @@ export default function Dashboard() {
   const [displayedExpenses, setDisplayedExpenses] = useState([]);
   const [balance, setBalance] = useState(0);
   const [toPay, setToPay] = useState(0);
+  const [budgets, setBudgets] = useState({});
+  const [categoryTotals, setCategoryTotals] = useState({});
   const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
   const { showProModal } = useDialog();
   
@@ -23,6 +25,8 @@ export default function Dashboard() {
       // Sort by date desc
       data.sort((a, b) => new Date(b.date) - new Date(a.date));
       setAllExpenses(data);
+      const bData = await getBudgets();
+      setBudgets(bData);
     }
     loadData();
 
@@ -49,6 +53,7 @@ export default function Dashboard() {
     
     let currentBalance = 0;
     let currentToPay = 0;
+    let currentTotals = {};
 
     filtered.forEach(item => {
       if (item.type === 'income') {
@@ -60,11 +65,15 @@ export default function Dashboard() {
         if (item.status === 'unpaid') {
           currentToPay += item.amount;
         }
+        if (item.status !== 'planned') {
+          currentTotals[item.category] = (currentTotals[item.category] || 0) + item.amount;
+        }
       }
     });
 
     setBalance(currentBalance);
     setToPay(currentToPay);
+    setCategoryTotals(currentTotals);
   }, [allExpenses, currentDate]);
 
   const changeMonth = (offset) => {
@@ -182,6 +191,46 @@ export default function Dashboard() {
           </h1>
         </div>
       </div>
+
+      {/* Progresso dos Orçamentos */}
+      {Object.keys(budgets).length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Orçamentos do Mês</h3>
+            <Link to="/budgets" style={{ fontSize: '0.8rem', color: 'var(--color-emerald-primary)', textDecoration: 'none', fontWeight: '600' }}>EDITAR</Link>
+          </div>
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {Object.keys(budgets).map(catId => {
+              const limit = budgets[catId];
+              const spent = categoryTotals[catId] || 0;
+              const percent = Math.min((spent / limit) * 100, 100);
+              const catData = getCategory(catId) || { label: 'Outros', icon: '💸' };
+              const isOver = spent >= limit;
+              const isWarning = percent >= 80 && !isOver;
+
+              let barColor = 'var(--color-emerald-primary)';
+              if (isWarning) barColor = '#f59e0b'; // amber
+              if (isOver) barColor = 'var(--color-crimson-primary)';
+
+              return (
+                <div key={catId}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', fontWeight: '500' }}>
+                      <span>{catData.icon}</span> {catData.label}
+                    </span>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      <strong style={{ color: isOver ? 'var(--color-crimson-primary)' : 'var(--text-primary)' }}>R$ {spent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> / R$ {limit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div style={{ height: '8px', background: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: barColor, width: `${percent}%`, transition: 'width 0.5s ease-out' }}></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       
       <div>
         <h3 style={{ marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Lançamentos</h3>

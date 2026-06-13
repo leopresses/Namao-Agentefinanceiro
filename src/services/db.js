@@ -58,6 +58,19 @@ export async function clearAllExpenses() {
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
+export async function getBudgets() {
+  const data = await get('namao_budgets');
+  return data || {};
+}
+
+export async function saveBudget(categoryId, limitAmount) {
+  await update('namao_budgets', (val) => {
+    const budgets = val || {};
+    return { ...budgets, [categoryId]: limitAmount };
+  });
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
 // Backup functions
 export async function setExpensesData(data) {
   await set(EXPENSES_KEY, data);

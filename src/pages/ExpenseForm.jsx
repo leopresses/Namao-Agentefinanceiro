@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { addExpense, getExpenseById, updateExpense, updateExpenseGroup } from '../services/db';
+import { addExpense, getExpenseById, updateExpense, updateExpenseGroup, getBudgets, getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { CATEGORIES } from '../utils/categories';
 
@@ -38,6 +38,37 @@ export default function ExpenseForm() {
   const [fixedMonths, setFixedMonths] = useState(12);
   const [groupId, setGroupId] = useState(null);
   const { showConfirm } = useDialog();
+
+  const [budgetLimit, setBudgetLimit] = useState(0);
+  const [currentSpent, setCurrentSpent] = useState(0);
+
+  useEffect(() => {
+    if (isIncome) return;
+    async function checkBudget() {
+      const limits = await getBudgets();
+      const limit = limits[category] || 0;
+      setBudgetLimit(limit);
+
+      if (limit > 0) {
+        const allExp = await getExpenses();
+        const monthDate = new Date(date + 'T12:00:00');
+        const month = monthDate.getMonth();
+        const year = monthDate.getFullYear();
+        
+        let spent = 0;
+        allExp.forEach(e => {
+          if (e.type === 'expense' && e.category === category && e.status !== 'planned' && e.id !== editId) {
+            const eDate = new Date(e.date + 'T12:00:00');
+            if (eDate.getMonth() === month && eDate.getFullYear() === year) {
+              spent += e.amount;
+            }
+          }
+        });
+        setCurrentSpent(spent);
+      }
+    }
+    checkBudget();
+  }, [category, date, isIncome, editId]);
 
   useEffect(() => {
     if (isEditing) {
@@ -163,6 +194,22 @@ export default function ExpenseForm() {
                 </div>
               ))}
             </div>
+            
+            {budgetLimit > 0 && !isIncome && (
+              <div style={{ marginTop: '12px', padding: '12px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '0.85rem' }}>
+                <div style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  Orçamento Mensal: <strong>R$ {budgetLimit.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>
+                </div>
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  Já gasto: R$ {currentSpent.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                </div>
+                {(currentSpent + (parseFloat(amount) || 0)) > budgetLimit && (
+                  <div style={{ color: 'var(--color-crimson-primary)', fontWeight: 'bold', marginTop: '8px', display: 'flex', gap: '6px' }}>
+                    <span>⚠️</span> Ultrapassará o limite
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="input-group">

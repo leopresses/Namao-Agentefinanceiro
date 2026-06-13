@@ -3,7 +3,7 @@ import { getExpenses } from '../services/db';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useDialog } from '../contexts/DialogContext';
-import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCategory } from '../utils/categories';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -139,46 +139,7 @@ export default function Report() {
     }
   };
 
-  const handleExportCSV = () => {
-    if (displayedExpenses.length === 0) {
-      showAlert("Não há dados para exportar neste filtro.");
-      return;
-    }
 
-    const headers = ["Data", "Descrição", "Categoria", "Valor", "Tipo", "Status"];
-    
-    const rows = displayedExpenses.map(item => {
-      const catLabel = item.category ? getCategory(item.category).label : 'Outros';
-      const tipo = item.type === 'income' ? 'Renda' : 'Despesa';
-      const status = item.status === 'paid' ? 'Pago' : (item.status === 'planned' ? 'Planejado' : 'Pendente');
-      
-      const desc = `"${item.description.replace(/"/g, '""')}"`;
-      
-      // Formata a data para o padrão brasileiro DD/MM/YYYY
-      const [year, month, day] = item.date.split('-');
-      const formattedDate = `${day}/${month}/${year}`;
-      
-      // Formata o valor trocando ponto por vírgula para o Excel reconhecer como número no Brasil
-      const formattedAmount = item.amount.toFixed(2).replace('.', ',');
-      
-      // Usar ponto e vírgula (;) é obrigatório para o Excel em português dividir as colunas
-      return [formattedDate, desc, catLabel, formattedAmount, tipo, status].join(';');
-    });
-
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(';'), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    const monthStr = filterMode === 'month' ? `_${monthNames[currentDate.getMonth()]}_${currentDate.getFullYear()}` : '_Geral';
-    link.setAttribute("download", `NaMao_Relatorio${monthStr}.csv`);
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    showAlert("Download do Excel/CSV concluído!");
-  };
 
   // Precisamos converter a imagem da logo pra Base64 para injetar no PDF corretamente via HTML2Canvas
   // Como é local, vamos tentar renderizar a tag img normalmente, mas se falhar no CORS, html2canvas pode ignorar.
@@ -200,11 +161,8 @@ export default function Report() {
 
   return (
     <div className="animate-fade-up">
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', margin: 0 }}>Relatórios</h1>
-        <button onClick={handleExportCSV} className="btn-primary" style={{ padding: '8px 16px', borderRadius: '16px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Download size={16} /> Excel
-        </button>
+      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
+        <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>Relatórios</h1>
       </header>
 
       {/* Tipo de Filtro */}

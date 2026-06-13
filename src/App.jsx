@@ -7,6 +7,7 @@ import ExpenseDetails from './pages/ExpenseDetails';
 import Profile from './pages/Profile';
 import ChatAI from './pages/ChatAI';
 import Report from './pages/Report';
+import Budgets from './pages/Budgets';
 import BottomNav from './components/BottomNav';
 import HelpModal from './components/HelpModal';
 import PwaPrompt from './components/PwaPrompt';
@@ -104,6 +105,7 @@ function App() {
       <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
       <Route path="/chat" element={<RequireAuth><ChatAI /></RequireAuth>} />
       <Route path="/report" element={<RequireAuth><Report /></RequireAuth>} />
+      <Route path="/budgets" element={<RequireAuth><Budgets /></RequireAuth>} />
       
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
