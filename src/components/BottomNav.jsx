@@ -92,7 +92,7 @@ const BottomNav = () => {
           <button 
             onClick={handleVoice} 
             className="btn-primary" 
-            style={{ width: '100%', padding: '12px', boxShadow: 'none', background: 'var(--color-brand-primary)' }}
+            style={{ width: '100%', padding: '12px', boxShadow: 'none', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none' }}
           >
             <Mic size={20} /> <span>Lançar por Voz (IA)</span>
           </button>
