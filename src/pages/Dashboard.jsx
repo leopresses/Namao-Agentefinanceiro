@@ -197,16 +197,16 @@ export default function Dashboard() {
       </div>
 
       {/* Progresso dos Orçamentos */}
-      {Object.keys(budgets).length > 0 && (
+      {Object.entries(budgets).filter(([_, limit]) => limit > 0).length > 0 && (
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h3 style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Orçamentos do Mês</h3>
             <Link to="/budgets" style={{ fontSize: '0.8rem', color: 'var(--color-emerald-primary)', textDecoration: 'none', fontWeight: '600' }}>EDITAR</Link>
           </div>
           <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {Object.keys(budgets).map(catId => {
-              const limit = budgets[catId];
-              if (!limit) return null; // Bug fix: ignores null limits
+            {Object.entries(budgets)
+              .filter(([_, limit]) => limit > 0)
+              .map(([catId, limit]) => {
 
               const spent = categoryTotals[catId] || 0;
               const percent = Math.min((spent / limit) * 100, 100);

@@ -25,11 +25,11 @@ export default function ExpenseForm() {
   const isIncome = typeParam === 'income';
   const isEditing = !!editId;
 
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState(searchParams.get('description') || '');
+  const [amount, setAmount] = useState(searchParams.get('amount') || '');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [status, setStatus] = useState(isIncome ? 'paid' : 'unpaid');
-  const [category, setCategory] = useState('outros');
+  const [category, setCategory] = useState(searchParams.get('category') || 'outros');
   
   // Opções de Recorrência (Apenas para novas despesas)
   const [isRecurring, setIsRecurring] = useState(false);

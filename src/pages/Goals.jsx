@@ -46,7 +46,7 @@ export default function Goals() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '24px' }}>
             Crie sua primeira meta para começar a poupar para a viagem dos sonhos, um carro novo ou reserva de emergência.
           </p>
-          <button className="btn-primary" onClick={() => navigate('/goal/new')}>
+          <button className="btn-primary" style={{ display: 'block', margin: '0 auto' }} onClick={() => navigate('/goal/new')}>
             Criar Minha Primeira Meta
           </button>
         </div>
