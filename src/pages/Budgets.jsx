@@ -7,7 +7,7 @@ import { useDialog } from '../contexts/DialogContext';
 export default function Budgets() {
   const navigate = useNavigate();
   const [budgets, setBudgets] = useState({});
-  const { showAlert } = useDialog();
+  const { showAlert, showPrompt } = useDialog();
 
   useEffect(() => {
     async function load() {
@@ -19,23 +19,23 @@ export default function Budgets() {
 
   const handleSetLimit = async (categoryId, catLabel) => {
     const currentLimit = budgets[categoryId] || '';
-    const newLimit = window.prompt(`Defina o limite mensal para ${catLabel} (R$):\n(Deixe em branco ou 0 para remover o limite)`, currentLimit);
+    const newLimit = await showPrompt(`Defina o limite para ${catLabel}`, `Deixe em branco ou 0 para remover o limite mensal.`, currentLimit);
     
     if (newLimit === null) return; // cancelou
 
-    const numValue = parseFloat(newLimit.replace(',', '.'));
+    const numValue = parseFloat(newLimit.toString().replace(',', '.'));
     
-    if (newLimit.trim() === '' || isNaN(numValue) || numValue <= 0) {
+    if (newLimit.toString().trim() === '' || isNaN(numValue) || numValue <= 0) {
       // Remove o limite
       const updated = { ...budgets };
       delete updated[categoryId];
       await saveBudget(categoryId, null);
       setBudgets(updated);
-      showAlert(`Limite de ${catLabel} removido.`);
+      showAlert('Sucesso', `Limite de ${catLabel} removido.`);
     } else {
       await saveBudget(categoryId, numValue);
       setBudgets({ ...budgets, [categoryId]: numValue });
-      showAlert(`Limite de ${catLabel} definido para R$ ${numValue.toFixed(2).replace('.', ',')}.`);
+      showAlert('Sucesso', `Limite de ${catLabel} definido para R$ ${numValue.toFixed(2).replace('.', ',')}.`);
     }
   };
 

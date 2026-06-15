@@ -46,7 +46,7 @@ export default function ExpenseForm() {
     if (isIncome) return;
     async function checkBudget() {
       const limits = await getBudgets();
-      const limit = limits[category] || 0;
+      const limit = parseFloat(limits[category]) || 0;
       setBudgetLimit(limit);
 
       if (limit > 0) {

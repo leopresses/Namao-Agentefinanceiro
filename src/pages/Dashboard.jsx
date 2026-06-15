@@ -202,6 +202,8 @@ export default function Dashboard() {
           <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {Object.keys(budgets).map(catId => {
               const limit = budgets[catId];
+              if (!limit) return null; // Bug fix: ignores null limits
+
               const spent = categoryTotals[catId] || 0;
               const percent = Math.min((spent / limit) * 100, 100);
               const catData = getCategory(catId) || { label: 'Outros', icon: '💸' };

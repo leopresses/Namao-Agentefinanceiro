@@ -66,7 +66,12 @@ export async function getBudgets() {
 export async function saveBudget(categoryId, limitAmount) {
   await update('namao_budgets', (val) => {
     const budgets = val || {};
-    return { ...budgets, [categoryId]: limitAmount };
+    if (limitAmount === null) {
+      delete budgets[categoryId];
+    } else {
+      budgets[categoryId] = limitAmount;
+    }
+    return budgets;
   });
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
