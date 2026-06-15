@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Plus, User, Bot, FileText, ArrowDownCircle, ArrowUpCircle, Mic } from 'lucide-react';
+import { Home, Plus, User, Bot, FileText, ArrowDownCircle, ArrowUpCircle, Mic, X } from 'lucide-react';
 
 const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
+  const recognitionRef = useRef(null);
 
   if (location.pathname === '/login') return null;
 
@@ -32,6 +33,7 @@ const BottomNav = () => {
     }
 
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     recognition.lang = 'pt-BR';
     recognition.interimResults = false;
 
@@ -71,10 +73,17 @@ const BottomNav = () => {
 
     recognition.onerror = () => {
       setIsListening(false);
-      alert('Erro ao acessar o microfone.');
     };
 
     recognition.start();
+  };
+
+  const cancelVoice = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+    }
+    setIsListening(false);
+    setIsProcessing(false);
   };
 
   return (
@@ -115,13 +124,22 @@ const BottomNav = () => {
 
       {(isListening || isProcessing) && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-          <div className={`glass-card ${isListening ? 'pulse' : ''}`} style={{ textAlign: 'center', background: 'var(--bg-primary)', padding: '32px', borderRadius: '32px' }}>
-            <Mic size={48} color={isListening ? 'var(--color-emerald-primary)' : 'var(--text-tertiary)'} style={{ marginBottom: '16px' }} />
-            <h3 style={{ color: 'var(--text-primary)' }}>{isListening ? 'Fale agora...' : 'A IA está analisando...'}</h3>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              {isListening ? 'ex: Gastei 150 reais de gasolina hoje' : 'Aguarde um instante.'}
+          <div className="glass-card" style={{ textAlign: 'center', background: 'var(--bg-primary)', padding: '32px', borderRadius: '32px', maxWidth: '300px' }}>
+            <div className={isListening ? 'animate-pulse-glow' : ''} style={{ display: 'inline-block', marginBottom: '16px', padding: '16px', borderRadius: '50%', background: isListening ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
+              <Mic size={48} color={isListening ? 'var(--color-emerald-primary)' : 'var(--text-tertiary)'} />
+            </div>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>{isListening ? 'Fale agora...' : 'A IA está analisando...'}</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              {isListening ? 'ex: "Gastei 150 reais de gasolina hoje"' : 'Aguarde um instante enquanto processamos sua fala.'}
             </p>
           </div>
+          
+          <button 
+            onClick={cancelVoice} 
+            style={{ marginTop: '32px', background: 'var(--color-crimson-primary)', border: 'none', borderRadius: '50%', padding: '16px', color: 'white', cursor: 'pointer', boxShadow: '0 8px 16px rgba(244, 63, 94, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <X size={28} />
+          </button>
         </div>
       )}
 

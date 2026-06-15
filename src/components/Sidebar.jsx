@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, User, Bot, FileText, Plus, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Home, User, Bot, FileText, Plus, ArrowUpCircle, ArrowDownCircle, Mic, X } from 'lucide-react';
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const [showDesktopMenu, setShowDesktopMenu] = useState(false);
+  const recognitionRef = useRef(null);
 
   const toggleMenu = (e) => {
     e.preventDefault();
@@ -14,6 +15,72 @@ const Sidebar = () => {
   const handleAdd = (type) => {
     setShowDesktopMenu(false);
     navigate(`/expense/new?type=${type}`);
+  };
+
+  const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleVoice = () => {
+    setShowDesktopMenu(false);
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Seu navegador não suporta reconhecimento de voz.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.lang = 'pt-BR';
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = async (event) => {
+      setIsListening(false);
+      const text = event.results[0][0].transcript;
+      
+      setIsProcessing(true);
+      try {
+        const response = await fetch('/api/extract-expense', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        
+        if (!response.ok) throw new Error('Falha na API');
+        const data = await response.json();
+        
+        setIsProcessing(false);
+        const params = new URLSearchParams();
+        if (data.amount) params.set('amount', data.amount);
+        if (data.description) params.set('description', data.description);
+        if (data.category) params.set('category', data.category);
+        params.set('type', data.type === 'income' ? 'income' : 'expense');
+        params.set('voice', 'true');
+        
+        navigate(`/expense/new?${params.toString()}`);
+      } catch (err) {
+        setIsProcessing(false);
+        alert('Erro ao processar a voz. Tente novamente.');
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
+
+  const cancelVoice = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+    }
+    setIsListening(false);
+    setIsProcessing(false);
   };
 
   return (
@@ -74,6 +141,13 @@ const Sidebar = () => {
             borderRadius: '16px',
             width: '200px'
           }}>
+            <button 
+              onClick={handleVoice} 
+              className="btn-primary" 
+              style={{ width: '100%', padding: '12px', boxShadow: 'none', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none' }}
+            >
+              <Mic size={20} /> <span>Lançar por Voz (IA)</span>
+            </button>
             <button onClick={() => handleAdd('income')} className="btn-primary" style={{ width: '100%', padding: '12px', boxShadow: 'none' }}>
               <ArrowUpCircle size={20} /> <span>Nova Renda</span>
             </button>
@@ -102,6 +176,28 @@ const Sidebar = () => {
       {/* Overlay para fechar o menu superior */}
       {showDesktopMenu && (
         <div onClick={() => setShowDesktopMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+      )}
+
+      {/* Modal de Lançamento por Voz */}
+      {(isListening || isProcessing) && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+          <div className="glass-card" style={{ textAlign: 'center', background: 'var(--bg-primary)', padding: '32px', borderRadius: '32px', maxWidth: '300px' }}>
+            <div className={isListening ? 'animate-pulse-glow' : ''} style={{ display: 'inline-block', marginBottom: '16px', padding: '16px', borderRadius: '50%', background: isListening ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
+              <Mic size={48} color={isListening ? 'var(--color-emerald-primary)' : 'var(--text-tertiary)'} />
+            </div>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>{isListening ? 'Fale agora...' : 'A IA está analisando...'}</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              {isListening ? 'ex: "Gastei 150 reais de gasolina hoje"' : 'Aguarde um instante enquanto processamos sua fala.'}
+            </p>
+          </div>
+          
+          <button 
+            onClick={cancelVoice} 
+            style={{ marginTop: '32px', background: 'var(--color-crimson-primary)', border: 'none', borderRadius: '50%', padding: '16px', color: 'white', cursor: 'pointer', boxShadow: '0 8px 16px rgba(244, 63, 94, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <X size={28} />
+          </button>
+        </div>
       )}
     </>
   );
