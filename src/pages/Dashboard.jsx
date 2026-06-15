@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { getExpenses, getBudgets } from '../services/db';
-import { Link } from 'react-router-dom';
+import { getExpenses, getBudgets, getGoals } from '../services/db';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { getCategory } from '../utils/categories';
 import { getUserProStatus, onAuthChange } from '../services/firebase';
 import { useDialog } from '../contexts/DialogContext';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [allExpenses, setAllExpenses] = useState([]);
   const [displayedExpenses, setDisplayedExpenses] = useState([]);
   const [balance, setBalance] = useState(0);
   const [toPay, setToPay] = useState(0);
   const [budgets, setBudgets] = useState({});
   const [categoryTotals, setCategoryTotals] = useState({});
+  const [goals, setGoals] = useState([]);
   const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
   const { showProModal } = useDialog();
   
@@ -27,6 +29,8 @@ export default function Dashboard() {
       setAllExpenses(data);
       const bData = await getBudgets();
       setBudgets(bData);
+      const gData = await getGoals();
+      setGoals(gData);
     }
     loadData();
 
@@ -226,6 +230,52 @@ export default function Dashboard() {
                   </div>
                   <div style={{ height: '8px', background: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden' }}>
                     <div style={{ height: '100%', background: barColor, width: `${percent}%`, transition: 'width 0.5s ease-out' }}></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Resumo das Metas Financeiras */}
+      {goals.length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Metas Financeiras</h3>
+            <Link to="/goals" style={{ fontSize: '0.8rem', color: 'var(--color-emerald-primary)', textDecoration: 'none', fontWeight: '600' }}>VER TODAS</Link>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '8px', scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
+            {goals.map(goal => {
+              const percent = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+              const isCompleted = percent >= 100;
+              
+              return (
+                <div 
+                  key={goal.id} 
+                  className="glass-card" 
+                  onClick={() => navigate(`/goal/${goal.id}`)}
+                  style={{ minWidth: '220px', padding: '16px', cursor: 'pointer', scrollSnapAlign: 'start', position: 'relative', overflow: 'hidden' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '1.5rem' }}>{goal.icon || '🎯'}</div>
+                    <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{goal.title}</h4>
+                    </div>
+                  </div>
+                  
+                  <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isCompleted ? 'var(--color-emerald-primary)' : 'var(--text-primary)' }}>
+                      R$ {goal.currentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                    <span style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem', fontWeight: '600' }}>
+                      {percent.toFixed(0)}%
+                    </span>
+                  </div>
+                  
+                  <div style={{ height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: isCompleted ? 'var(--color-emerald-primary)' : 'var(--color-brand-primary)', width: `${percent}%` }}></div>
                   </div>
                 </div>
               );

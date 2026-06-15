@@ -76,6 +76,41 @@ export async function saveBudget(categoryId, limitAmount) {
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
+// Goals functions
+export async function getGoals() {
+  const data = await get('namao_goals');
+  return data || [];
+}
+
+export async function addGoal(goal) {
+  const newGoal = {
+    ...goal,
+    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+    createdAt: new Date().toISOString()
+  };
+  await update('namao_goals', (val) => {
+    const goals = val || [];
+    return [...goals, newGoal];
+  });
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
+export async function updateGoal(id, updates) {
+  await update('namao_goals', (val) => {
+    const goals = val || [];
+    return goals.map(g => g.id === id ? { ...g, ...updates } : g);
+  });
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
+export async function deleteGoal(id) {
+  await update('namao_goals', (val) => {
+    const goals = val || [];
+    return goals.filter(g => g.id !== id);
+  });
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
 // Backup functions
 export async function setExpensesData(data) {
   await set(EXPENSES_KEY, data);

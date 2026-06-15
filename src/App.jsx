@@ -8,6 +8,8 @@ import Profile from './pages/Profile';
 import ChatAI from './pages/ChatAI';
 import Report from './pages/Report';
 import Budgets from './pages/Budgets';
+import Goals from './pages/Goals';
+import GoalForm from './pages/GoalForm';
 import BottomNav from './components/BottomNav';
 import HelpModal from './components/HelpModal';
 import PwaPrompt from './components/PwaPrompt';
@@ -106,6 +108,9 @@ function App() {
       <Route path="/chat" element={<RequireAuth><ChatAI /></RequireAuth>} />
       <Route path="/report" element={<RequireAuth><Report /></RequireAuth>} />
       <Route path="/budgets" element={<RequireAuth><Budgets /></RequireAuth>} />
+      <Route path="/goals" element={<RequireAuth><Goals /></RequireAuth>} />
+      <Route path="/goal/new" element={<RequireAuth><GoalForm /></RequireAuth>} />
+      <Route path="/goal/:id" element={<RequireAuth><GoalForm /></RequireAuth>} />
       
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

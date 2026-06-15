@@ -270,7 +270,7 @@ export default function Profile() {
         
         <div 
           onClick={() => navigate('/budgets')}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--glass-border)', cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -279,6 +279,22 @@ export default function Profile() {
             <div>
               <div style={{ color: 'var(--text-primary)', fontWeight: '500' }}>Limites de Orçamento</div>
               <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Defina teto de gastos mensais</div>
+            </div>
+          </div>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
+        </div>
+
+        <div 
+          onClick={() => navigate('/goals')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '1.2rem' }}>🐷</span>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-primary)', fontWeight: '500' }}>Metas Financeiras</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Acompanhe seus cofrinhos e sonhos</div>
             </div>
           </div>
           <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
