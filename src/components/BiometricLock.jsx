@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Fingerprint } from 'lucide-react';
+import { logoutGoogle } from '../services/firebase';
 
 export default function BiometricLock({ children, requireLock }) {
   const [unlocked, setUnlocked] = useState(!requireLock);
@@ -79,14 +80,20 @@ export default function BiometricLock({ children, requireLock }) {
 
       {error && (
         <button 
-          onClick={() => {
+          onClick={async () => {
+            try {
+              await logoutGoogle();
+            } catch (e) {
+              console.error('Erro ao deslogar:', e);
+            }
             localStorage.removeItem('namao_biometric');
             localStorage.removeItem('namao_biometric_id');
-            setUnlocked(true);
+            localStorage.removeItem('namao_auth_token');
+            window.location.href = '/login';
           }}
           style={{ marginTop: '32px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: '0.85rem', textDecoration: 'underline', cursor: 'pointer' }}
         >
-          Desativar App Lock (Recuperação)
+          Sair da Conta (Recuperação)
         </button>
       )}
     </div>
