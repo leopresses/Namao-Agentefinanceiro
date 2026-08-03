@@ -56,30 +56,12 @@ function SyncStatusBadge() {
   );
 }
 
-// Componente para proteger rotas
-// SEGURANÇA: Verifica localStorage (UX) + Firebase Auth state (segurança real)
 function RequireAuth({ children }) {
   const token = localStorage.getItem('namao_auth_token');
-  const [firebaseReady, setFirebaseReady] = useState(false);
-  const [firebaseUser, setFirebaseUser] = useState(null);
   const location = useLocation();
 
-  useEffect(() => {
-    const unsubscribe = onAuthChange((user) => {
-      setFirebaseUser(user);
-      setFirebaseReady(true);
-    });
-    return unsubscribe;
-  }, []);
-
-  // Se não tem token local, redireciona imediatamente
+  // Se não tem token de autenticação local, redireciona para o login
   if (!token) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // Se Firebase já carregou e não há usuário autenticado, redireciona
-  if (firebaseReady && !firebaseUser) {
-    localStorage.removeItem('namao_auth_token');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

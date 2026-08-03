@@ -12,6 +12,8 @@ export default defineConfig({
         name: 'NaMão - Agente Financeiro',
         short_name: 'NaMão',
         description: 'Seu agente financeiro pessoal com IA',
+        start_url: '/',
+        scope: '/',
         theme_color: '#FDFBF7',
         background_color: '#FDFBF7',
         display: 'standalone',

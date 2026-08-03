@@ -1,11 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginWithGooglePopup, loginWithGoogleRedirect, checkGoogleLoginResult } from '../services/firebase';
+import { loginWithGooglePopup, loginWithGoogleRedirect, checkGoogleLoginResult, onAuthChange } from '../services/firebase';
 
 export default function Login() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redireciona automaticamente se o usuário já tem sessão local ativa
+  useEffect(() => {
+    const token = localStorage.getItem('namao_auth_token');
+    if (token) {
+      navigate('/', { replace: true });
+    }
+  }, [navigate]);
+
+  // Observa se o Firebase já restaurou a sessão do usuário
+  useEffect(() => {
+    const unsubscribe = onAuthChange((user) => {
+      if (user) {
+        localStorage.setItem('namao_auth_token', 'google');
+        localStorage.setItem('namao_user_uid', user.uid);
+        localStorage.setItem('namao_user_name', user.displayName || '');
+        localStorage.setItem('namao_user_photo', user.photoURL || '');
+        navigate('/', { replace: true });
+      }
+    });
+    return unsubscribe;
+  }, [navigate]);
 
   // Checa se o usuário acabou de voltar de um redirecionamento do Google (mobile)
   useEffect(() => {
@@ -18,7 +40,7 @@ export default function Login() {
           localStorage.setItem('namao_user_uid', user.uid);
           localStorage.setItem('namao_user_name', user.displayName || '');
           localStorage.setItem('namao_user_photo', user.photoURL || '');
-          navigate('/');
+          navigate('/', { replace: true });
         }
       } catch (err) {
         console.error('Firebase Redirect Error:', err);
