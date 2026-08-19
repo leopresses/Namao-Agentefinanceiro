@@ -4,7 +4,7 @@ import { useDialog } from '../contexts/DialogContext';
 import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId, getUserProStatus, onAuthChange } from '../services/firebase';
 import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
 import { getAllChats, setAllChats } from '../services/chatDb';
-import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star } from 'lucide-react';
+import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone } from 'lucide-react';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -120,6 +120,17 @@ export default function Profile() {
     setTheme(newTheme);
     localStorage.setItem('namao_theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
+  const handleInstallApp = () => {
+    const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    if (isInstalled) {
+      showAlert('App já instalado', 'O NaMão já está disponível na sua tela inicial.');
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent('trigger-pwa-prompt'));
   };
 
   const toggleBiometric = async () => {
@@ -362,6 +373,25 @@ export default function Profile() {
             }} />
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={handleInstallApp}
+          style={{
+            width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '16px', background: 'var(--bg-secondary)', borderRadius: '16px',
+            cursor: 'pointer', border: '1px solid var(--glass-border)', marginTop: '12px', textAlign: 'left'
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Smartphone size={24} color="var(--color-emerald-primary)" />
+            <span>
+              <span style={{ display: 'block', color: 'var(--text-primary)', fontWeight: '500', fontSize: '1rem' }}>Adicionar à Tela Inicial</span>
+              <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Instale o app no seu iPhone ou Android</span>
+            </span>
+          </span>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
+        </button>
       </div>
 
       {/* Danger Zone */}
