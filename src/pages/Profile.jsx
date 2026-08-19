@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
 import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId, getUserProStatus, onAuthChange } from '../services/firebase';
-import { getExpenses, setExpensesData, clearAllExpenses, getBudgets, setBudgetsData, getGoals, setGoalsData } from '../services/db';
+import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
 import { getAllChats, setAllChats } from '../services/chatDb';
-import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone } from 'lucide-react';
+import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star } from 'lucide-react';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -59,8 +59,6 @@ export default function Profile() {
       localStorage.removeItem('namao_user_name');
       localStorage.removeItem('namao_user_photo');
       localStorage.removeItem('namao_is_pro');
-      sessionStorage.removeItem('namao_biometric_session');
-      sessionStorage.clear();
       navigate('/login');
     }
   };
@@ -75,10 +73,8 @@ export default function Profile() {
     try {
       const data = await getExpenses();
       const chats = getAllChats();
-      const budgets = await getBudgets();
-      const goals = await getGoals();
-      await saveCloudBackup(data, chats, budgets, goals);
-      showAlert('Sucesso', 'Seus lançamentos, conversas, orçamentos e metas foram salvos na nuvem do Google!');
+      await saveCloudBackup(data, chats);
+      showAlert('Sucesso', 'Seus dados e conversas com a IA foram salvos com segurança na nuvem do Google!');
     } catch (err) {
       console.error(err);
       showAlert('Erro', 'Ocorreu um erro ao salvar na nuvem. Verifique sua conexão.');
@@ -95,24 +91,18 @@ export default function Profile() {
     }
     const confirmed = await showConfirm(
       'Restaurar da Nuvem', 
-      'Atenção: Isso vai substituir seus dados locais (lançamentos, orçamentos, metas e conversas) pelos que estão salvos na Nuvem. Deseja continuar?'
+      'Atenção: Isso vai substituir seus dados atuais (lançamentos e conversas com a IA) pelos que estão salvos na Nuvem. Deseja continuar?'
     );
     if (confirmed) {
       setIsSyncing(true);
       try {
         const cloudData = await loadCloudBackup();
-        if (cloudData.expenses.length > 0 || cloudData.chats || Object.keys(cloudData.budgets || {}).length > 0 || (cloudData.goals || []).length > 0) {
+        if (cloudData.expenses.length > 0 || cloudData.chats) {
           await setExpensesData(cloudData.expenses);
           if (cloudData.chats) {
             setAllChats(cloudData.chats);
           }
-          if (cloudData.budgets) {
-            await setBudgetsData(cloudData.budgets);
-          }
-          if (cloudData.goals) {
-            await setGoalsData(cloudData.goals);
-          }
-          showAlert('Sucesso', 'Dados, orçamentos, metas e conversas restaurados da nuvem com sucesso!');
+          showAlert('Sucesso', 'Dados e conversas restaurados da nuvem com sucesso!');
         } else {
           showAlert('Aviso', 'Não há dados salvos na sua nuvem ainda.');
         }
@@ -372,24 +362,6 @@ export default function Profile() {
             }} />
           </div>
         </div>
-
-        <div 
-          onClick={() => window.dispatchEvent(new CustomEvent('trigger-pwa-prompt'))}
-          style={{ 
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-            padding: '16px', background: 'var(--bg-secondary)', borderRadius: '16px', 
-            cursor: 'pointer', border: '1px solid var(--glass-border)', marginTop: '12px'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Smartphone size={24} color="var(--color-emerald-primary)" />
-            <div>
-              <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>Adicionar à Tela Inicial</h4>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Instalar app no celular</p>
-            </div>
-          </div>
-          <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
-        </div>
       </div>
 
       {/* Danger Zone */}
@@ -403,8 +375,6 @@ export default function Profile() {
             const confirmed = await showConfirm('ZERAR TUDO', 'Atenção: Isso vai APAGAR TODAS AS RENDAS E DESPESAS! Não tem como desfazer. Deseja mesmo continuar?');
             if (confirmed) {
               await clearAllExpenses();
-              await setBudgetsData({});
-              await setGoalsData([]);
               showAlert('Sucesso', 'Todos os dados foram apagados.');
               setTimeout(() => window.location.reload(), 1500);
             }
