@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getExpenses } from '../services/db';
+import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { getAllChats } from '../services/chatDb';
 import { saveCloudBackup, getSecureUserId, getUserProStatus } from '../services/firebase';
 
@@ -30,7 +30,9 @@ export function useAutoSync() {
     try {
       const data = await getExpenses();
       const chats = getAllChats();
-      await saveCloudBackup(data, chats); // userId é resolvido internamente via auth.currentUser
+      const budgets = await getBudgets();
+      const goals = await getGoals();
+      await saveCloudBackup(data, chats, budgets, goals); // userId é resolvido internamente via auth.currentUser
       localStorage.setItem('namao_pending_sync', 'false');
       
       const now = new Date().toISOString();

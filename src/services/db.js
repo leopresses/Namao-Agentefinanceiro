@@ -1,6 +1,8 @@
 import { get, set, update } from 'idb-keyval';
 
 const EXPENSES_KEY = 'namao_expenses';
+const BUDGETS_KEY = 'namao_budgets';
+const GOALS_KEY = 'namao_goals';
 
 export async function getExpenses() {
   const data = await get(EXPENSES_KEY);
@@ -59,12 +61,12 @@ export async function clearAllExpenses() {
 }
 
 export async function getBudgets() {
-  const data = await get('namao_budgets');
+  const data = await get(BUDGETS_KEY);
   return data || {};
 }
 
 export async function saveBudget(categoryId, limitAmount) {
-  await update('namao_budgets', (val) => {
+  await update(BUDGETS_KEY, (val) => {
     const budgets = val || {};
     if (limitAmount === null) {
       delete budgets[categoryId];
@@ -78,7 +80,7 @@ export async function saveBudget(categoryId, limitAmount) {
 
 // Goals functions
 export async function getGoals() {
-  const data = await get('namao_goals');
+  const data = await get(GOALS_KEY);
   return data || [];
 }
 
@@ -88,7 +90,7 @@ export async function addGoal(goal) {
     id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
     createdAt: new Date().toISOString()
   };
-  await update('namao_goals', (val) => {
+  await update(GOALS_KEY, (val) => {
     const goals = val || [];
     return [...goals, newGoal];
   });
@@ -96,7 +98,7 @@ export async function addGoal(goal) {
 }
 
 export async function updateGoal(id, updates) {
-  await update('namao_goals', (val) => {
+  await update(GOALS_KEY, (val) => {
     const goals = val || [];
     return goals.map(g => g.id === id ? { ...g, ...updates } : g);
   });
@@ -104,7 +106,7 @@ export async function updateGoal(id, updates) {
 }
 
 export async function deleteGoal(id) {
-  await update('namao_goals', (val) => {
+  await update(GOALS_KEY, (val) => {
     const goals = val || [];
     return goals.filter(g => g.id !== id);
   });
@@ -113,6 +115,25 @@ export async function deleteGoal(id) {
 
 // Backup functions
 export async function setExpensesData(data) {
-  await set(EXPENSES_KEY, data);
+  await set(EXPENSES_KEY, data || []);
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
+export async function setBudgetsData(data) {
+  await set(BUDGETS_KEY, data || {});
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
+export async function setGoalsData(data) {
+  await set(GOALS_KEY, data || []);
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
+export async function restoreCloudData({ expenses, budgets, goals }) {
+  await Promise.all([
+    set(EXPENSES_KEY, expenses || []),
+    set(BUDGETS_KEY, budgets || {}),
+    set(GOALS_KEY, goals || [])
+  ]);
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }

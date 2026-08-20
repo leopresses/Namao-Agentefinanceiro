@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
 import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId, getUserProStatus, onAuthChange } from '../services/firebase';
-import { getExpenses, setExpensesData, clearAllExpenses } from '../services/db';
+import { getExpenses, getBudgets, getGoals, restoreCloudData, clearAllExpenses } from '../services/db';
 import { getAllChats, setAllChats } from '../services/chatDb';
 import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone } from 'lucide-react';
 
@@ -71,10 +71,12 @@ export default function Profile() {
     }
     setIsSyncing(true);
     try {
-      const data = await getExpenses();
+      const expenses = await getExpenses();
       const chats = getAllChats();
-      await saveCloudBackup(data, chats);
-      showAlert('Sucesso', 'Seus dados e conversas com a IA foram salvos com segurança na nuvem do Google!');
+      const budgets = await getBudgets();
+      const goals = await getGoals();
+      await saveCloudBackup(expenses, chats, budgets, goals);
+      showAlert('Sucesso', 'Seus dados, orçamentos, metas e conversas com a IA foram salvos na nuvem do Google!');
     } catch (err) {
       console.error(err);
       showAlert('Erro', 'Ocorreu um erro ao salvar na nuvem. Verifique sua conexão.');
@@ -91,18 +93,24 @@ export default function Profile() {
     }
     const confirmed = await showConfirm(
       'Restaurar da Nuvem', 
-      'Atenção: Isso vai substituir seus dados atuais (lançamentos e conversas com a IA) pelos que estão salvos na Nuvem. Deseja continuar?'
+      'Atenção: Isso vai substituir seus dados atuais, orçamentos, metas e conversas com a IA pelos que estão salvos na Nuvem. Deseja continuar?'
     );
     if (confirmed) {
       setIsSyncing(true);
       try {
         const cloudData = await loadCloudBackup();
-        if (cloudData.expenses.length > 0 || cloudData.chats) {
-          await setExpensesData(cloudData.expenses);
+        const hasBudgets = Object.keys(cloudData.budgets || {}).length > 0;
+        const hasGoals = (cloudData.goals || []).length > 0;
+        if (cloudData.expenses.length > 0 || cloudData.chats || hasBudgets || hasGoals) {
+          await restoreCloudData({
+            expenses: cloudData.expenses,
+            budgets: cloudData.budgets,
+            goals: cloudData.goals
+          });
           if (cloudData.chats) {
             setAllChats(cloudData.chats);
           }
-          showAlert('Sucesso', 'Dados e conversas restaurados da nuvem com sucesso!');
+          showAlert('Sucesso', 'Dados, orçamentos, metas e conversas restaurados da nuvem com sucesso!');
         } else {
           showAlert('Aviso', 'Não há dados salvos na sua nuvem ainda.');
         }

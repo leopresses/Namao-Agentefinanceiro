@@ -85,17 +85,23 @@ export function onAuthChange(callback) {
 // =============================================
 
 // SEGURANÇA: userId vem de auth.currentUser.uid, NUNCA do localStorage
-export const saveCloudBackup = async (expensesData, chatsData) => {
+export const saveCloudBackup = async (expensesData, chatsData, budgetsData, goalsData) => {
   const uid = getSecureUserId();
   if (!uid) throw new Error("Usuário não autenticado");
 
   const userRef = doc(db, 'users', uid);
   const payload = {
-    expenses: expensesData,
+    expenses: expensesData || [],
     lastBackup: new Date().toISOString()
   };
   if (chatsData !== undefined) {
     payload.chats = chatsData;
+  }
+  if (budgetsData !== undefined) {
+    payload.budgets = budgetsData;
+  }
+  if (goalsData !== undefined) {
+    payload.goals = goalsData;
   }
   await setDoc(userRef, payload, { merge: true });
 };
@@ -111,10 +117,12 @@ export const loadCloudBackup = async () => {
     const data = docSnap.data();
     return {
       expenses: data.expenses || [],
-      chats: data.chats || null
+      chats: data.chats || null,
+      budgets: data.budgets || {},
+      goals: data.goals || []
     };
   }
-  return { expenses: [], chats: null };
+  return { expenses: [], chats: null, budgets: {}, goals: [] };
 };
 
 // =============================================

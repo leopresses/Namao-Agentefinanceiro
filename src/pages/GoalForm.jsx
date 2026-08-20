@@ -49,8 +49,8 @@ export default function GoalForm() {
       return;
     }
 
-    if (cAmount > tAmount) {
-      showAlert('Atenção', 'O valor guardado não pode ser maior que o objetivo final.');
+    if (cAmount < 0) {
+      showAlert('Atenção', 'O valor guardado não pode ser negativo.');
       return;
     }
 
@@ -85,13 +85,9 @@ export default function GoalForm() {
   };
 
   const addFunds = (amountToAdd) => {
-    const tAmount = parseFloat(targetAmount.toString().replace(',', '.')) || 0;
     const cAmount = parseFloat(currentAmount.toString().replace(',', '.')) || 0;
-    
     let newTotal = cAmount + amountToAdd;
-    if (newTotal > tAmount && tAmount > 0) newTotal = tAmount;
     if (newTotal < 0) newTotal = 0;
-    
     setCurrentAmount(newTotal.toFixed(2));
   };
 
@@ -147,9 +143,8 @@ export default function GoalForm() {
           <div className="input-group">
             <label className="input-label">Objetivo Final (R$)</label>
             <input 
-              type="number" 
-              step="0.01"
-              min="0.01"
+              type="text" 
+              inputMode="decimal"
               placeholder="10000,00"
               className="input-field" 
               value={targetAmount}
@@ -161,9 +156,8 @@ export default function GoalForm() {
           <div className="input-group" style={{ padding: '16px', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
             <label className="input-label" style={{ color: 'var(--color-emerald-dark)' }}>Valor Guardado (R$)</label>
             <input 
-              type="number" 
-              step="0.01"
-              min="0"
+              type="text" 
+              inputMode="decimal"
               placeholder="0,00"
               className="input-field" 
               value={currentAmount}
@@ -192,6 +186,17 @@ export default function GoalForm() {
           <button type="submit" className="btn-primary" style={{ width: '100%', padding: '16px', fontSize: '1rem', marginTop: '12px' }}>
             {isEditing ? 'Atualizar Meta' : 'Criar Meta'}
           </button>
+
+          {isEditing && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="btn-danger"
+              style={{ width: '100%', padding: '14px', marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              <Trash2 size={18} /> Excluir Meta
+            </button>
+          )}
         </form>
       </div>
     </div>
