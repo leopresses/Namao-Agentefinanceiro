@@ -163,8 +163,9 @@ export const getUserProStatus = async () => {
     }
 
     const expiresAt = data.proExpiresAt ? new Date(data.proExpiresAt) : null;
+    const hasUnlimitedManualAccess = data.planType === 'manual_unlimited';
     const isAdmin = data.planType === 'admin';
-    const isPro = !!data.isPro && (isAdmin || !!expiresAt && expiresAt.getTime() > Date.now());
+    const isPro = !!data.isPro && (isAdmin || hasUnlimitedManualAccess || !!expiresAt && expiresAt.getTime() > Date.now());
     localStorage.setItem('namao_is_pro', isPro ? 'true' : 'false');
 
     return {

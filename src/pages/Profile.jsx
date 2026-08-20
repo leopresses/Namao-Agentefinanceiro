@@ -5,6 +5,7 @@ import { logoutGoogle, saveCloudBackup, loadCloudBackup, getUserProStatus, onAut
 import { getExpenses, getBudgets, getGoals, restoreCloudData, clearAllFinancialData } from '../services/db';
 import { clearAllChats, getAllChats, setAllChats } from '../services/chatDb';
 import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone } from 'lucide-react';
+import AdminPanel from '../components/AdminPanel';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -400,6 +401,8 @@ export default function Profile() {
           <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
         </button>
       </div>
+
+      <AdminPanel showAlert={showAlert} showConfirm={showConfirm} />
 
       {/* Danger Zone */}
       <div className="glass-card" style={{ marginBottom: '24px', background: 'rgba(244, 63, 94, 0.05)', border: '1px solid rgba(244, 63, 94, 0.2)' }}>

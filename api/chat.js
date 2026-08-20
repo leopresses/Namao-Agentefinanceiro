@@ -8,7 +8,7 @@ const MAX_CONTEXT_LENGTH = 25000;
 
 function isActivePro(data, now) {
   if (!data?.isPro) return false;
-  if (data.planType === 'admin') return true;
+  if (data.planType === 'admin' || data.planType === 'manual_unlimited') return true;
   const expiresAt = new Date(data.proExpiresAt || '');
   return Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() > now;
 }
