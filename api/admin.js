@@ -93,7 +93,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const adminAuth = getAdmAuth();
+    const adminAuth = getAdminAuth();
     const db = getAdminDb();
     const actor = await adminAuth.verifyIdToken(idToken);
 
@@ -166,7 +166,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ user: toPublicUser(target, updated.data() || {}) });
     }
 
-    return res.status(400).json({ error: 'Acção administrativa inválida.' });
+    return res.status(400).json({ error: 'Ação administrativa inválida.' });
   } catch (error) {
     if (error.code === 'auth/user-not-found') {
       return res.status(404).json({ error: 'Nenhum usuário cadastrado com este e-mail.' });
