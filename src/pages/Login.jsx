@@ -126,7 +126,9 @@ export default function Login() {
         
         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '24px', lineHeight: '1.5' }}>
           Serviço destinado a pessoas com 18 anos ou mais. Ao continuar, você confirma que leu a{' '}
-          <Link to="/privacy" style={{ color: 'var(--color-emerald-dark)', fontWeight: '700' }}>Política de Privacidade</Link>.
+          <Link to="/privacy" style={{ color: 'var(--color-emerald-dark)', fontWeight: '700' }}>Política de Privacidade</Link>{' '}
+          e a{' '}
+          <Link to="/help" style={{ color: 'var(--color-emerald-dark)', fontWeight: '700' }}>Central de Ajuda</Link>.
         </p>
       </div>
     </div>

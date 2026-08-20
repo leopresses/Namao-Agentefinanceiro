@@ -172,7 +172,12 @@ export const getUserProStatus = async () => {
     const expiresAt = data.proExpiresAt ? new Date(data.proExpiresAt) : null;
     const hasUnlimitedManualAccess = data.planType === 'manual_unlimited';
     const isAdmin = data.planType === 'admin';
-    const isPro = !!data.isPro && (isAdmin || hasUnlimitedManualAccess || !!expiresAt && expiresAt.getTime() > Date.now());
+    // Contas PRO criadas antes da inclusão de planos e vencimentos guardavam
+    // apenas isPro. O documento raiz hoje não pode ser alterado pelo cliente,
+    // então reconhecemos somente esse formato legado para não retirar um
+    // acesso que já havia sido concedido.
+    const hasLegacyProAccess = data.isPro === true && !data.planType && !data.proExpiresAt;
+    const isPro = !!data.isPro && (isAdmin || hasUnlimitedManualAccess || hasLegacyProAccess || !!expiresAt && expiresAt.getTime() > Date.now());
     localStorage.setItem('namao_is_pro', isPro ? 'true' : 'false');
 
     return {

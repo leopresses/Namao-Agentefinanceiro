@@ -20,18 +20,21 @@ function isAdministrator(user) {
 function isActivePro(data, now = Date.now()) {
   if (!data?.isPro) return false;
   if (data.planType === 'admin' || data.planType === 'manual_unlimited') return true;
+  // Compatibilidade com acessos concedidos antes de existir plano/vencimento.
+  if (!data.planType && !data.proExpiresAt) return true;
 
   const expiresAt = new Date(data.proExpiresAt || '');
   return Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() > now;
 }
 
 function toPublicUser(authUser, account) {
+  const hasLegacyProAccess = account?.isPro === true && !account?.planType && !account?.proExpiresAt;
   return {
     uid: authUser.uid,
     email: authUser.email || '',
     name: authUser.displayName || '',
     isPro: isActivePro(account),
-    planType: account?.planType || 'free',
+    planType: account?.planType || (hasLegacyProAccess ? 'legacy' : 'free'),
     proExpiresAt: account?.proExpiresAt || null,
   };
 }

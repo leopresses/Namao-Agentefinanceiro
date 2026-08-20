@@ -211,7 +211,9 @@ export default function AdminPanel({ showAlert, showConfirm }) {
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', overflowWrap: 'anywhere', marginTop: '2px' }}>{selectedUser.email}</div>
           <div style={{ color: selectedUser.isPro ? '#b8860b' : 'var(--text-secondary)', fontSize: '0.82rem', margin: '10px 0 14px' }}>
             {selectedUser.isPro
-              ? `PRO ${selectedUser.planType === 'manual_unlimited' ? 'sem prazo' : `até ${formatExpiration(selectedUser.proExpiresAt, selectedUser.planType)}`}`
+              ? selectedUser.planType === 'legacy'
+                ? 'PRO (acesso anterior, sem vencimento registrado)'
+                : `PRO ${selectedUser.planType === 'manual_unlimited' ? 'sem prazo' : `até ${formatExpiration(selectedUser.proExpiresAt, selectedUser.planType)}`}`
               : 'Plano gratuito'}
           </div>
 
