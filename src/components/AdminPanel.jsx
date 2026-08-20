@@ -129,6 +129,39 @@ export default function AdminPanel({ showAlert, showConfirm }) {
         </div>
       </div>
 
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ color: 'var(--text-primary)', fontSize: '0.86rem', fontWeight: '700', marginBottom: '8px' }}>
+          E-mails cadastrados
+        </div>
+        <div style={{ maxHeight: '148px', overflowY: 'auto', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)' }}>
+          {(summary.users || []).map((user) => (
+            <button
+              key={user.email}
+              type="button"
+              onClick={() => setEmail(user.email)}
+              style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', padding: '10px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left' }}
+              title="Preencher este e-mail na busca"
+            >
+              <span style={{ fontSize: '0.84rem', overflowWrap: 'anywhere' }}>{user.email}</span>
+              {user.name && <span style={{ color: 'var(--text-secondary)', fontSize: '0.72rem' }}>{user.name}</span>}
+            </button>
+          ))}
+          {summary.hasMoreUsers && (
+            <div style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: '0.76rem' }}>
+              Exibindo os primeiros 100 usuários.
+            </div>
+          )}
+          {!summary.users?.length && (
+            <div style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+              Nenhum e-mail disponível para exibir.
+            </div>
+          )}
+        </div>
+        <p style={{ margin: '7px 0 0', color: 'var(--text-secondary)', fontSize: '0.72rem' }}>
+          Toque em um e-mail para preencher a busca.
+        </p>
+      </div>
+
       <form onSubmit={handleSearch} style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
         <input
           type="email"
