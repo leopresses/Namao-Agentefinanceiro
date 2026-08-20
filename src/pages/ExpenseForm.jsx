@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { addExpense, getExpenseById, updateExpense, updateExpenseGroup, getBudgets, getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { CATEGORIES } from '../utils/categories';
+import { parseBrazilianCurrency } from '../utils/currency';
+
+function formatLocalDate(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 // Função para adicionar meses a uma data (YYYY-MM-DD)
 function addMonths(dateString, monthsToAdd) {
@@ -14,7 +22,7 @@ function addMonths(dateString, monthsToAdd) {
   if (date.getMonth() !== targetMonth) {
     date.setDate(0); 
   }
-  return date.toISOString().split('T')[0];
+  return formatLocalDate(date);
 }
 
 export default function ExpenseForm() {
@@ -27,7 +35,7 @@ export default function ExpenseForm() {
 
   const [description, setDescription] = useState(searchParams.get('description') || '');
   const [amount, setAmount] = useState(searchParams.get('amount') || '');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatLocalDate(new Date()));
   const [status, setStatus] = useState(isIncome ? 'paid' : 'unpaid');
   const [category, setCategory] = useState(searchParams.get('category') || 'outros');
   
@@ -37,7 +45,7 @@ export default function ExpenseForm() {
   const [installments, setInstallments] = useState(2);
   const [fixedMonths, setFixedMonths] = useState(12);
   const [groupId, setGroupId] = useState(null);
-  const { showConfirm } = useDialog();
+  const { showConfirm, showAlert } = useDialog();
 
   const [budgetLimit, setBudgetLimit] = useState(0);
   const [currentSpent, setCurrentSpent] = useState(0);
@@ -46,7 +54,7 @@ export default function ExpenseForm() {
     if (isIncome) return;
     async function checkBudget() {
       const limits = await getBudgets();
-      const limit = parseFloat(limits[category]) || 0;
+      const limit = Number(limits[category]) || 0;
       setBudgetLimit(limit);
 
       if (limit > 0) {
@@ -91,18 +99,27 @@ export default function ExpenseForm() {
     e.preventDefault();
     if (!description || !amount || !date) return;
 
+    const parsedAmount = parseBrazilianCurrency(amount);
+    if (parsedAmount === null || parsedAmount <= 0) {
+      showAlert('Atenção', 'Informe um valor válido maior que zero. Ex.: 1.250,50');
+      return;
+    }
+
     if (isEditing) {
       // Atualizar a despesa
-      const newAmount = parseFloat(amount);
+      const newAmount = parsedAmount;
       
       if (groupId) {
         const updateAll = await showConfirm(
           'Atualizar Parcelas',
-          'Esta é uma conta parcelada/recorrente. Deseja aplicar essa edição para TODAS as parcelas deste grupo (meses passados e futuros)? (Clique em OK para Todas, ou Cancelar para alterar apenas este mês).'
+          'Deseja aplicar valor, categoria e descrição para todas as parcelas deste grupo? Datas e situações individuais serão preservadas. (OK para todas; Cancelar para somente esta).'
         );
         
         if (updateAll) {
-          await updateExpenseGroup(groupId, { amount: newAmount, category, description });
+          await updateExpenseGroup(groupId, (expense) => {
+            const suffix = expense.description.match(/\s\(\d+\/\d+\)$/)?.[0] || '';
+            return { amount: newAmount, category, description: `${description}${suffix}` };
+          });
         }
       }
 
@@ -126,7 +143,7 @@ export default function ExpenseForm() {
         if (recurrenceType === 'fixa') loops = parseInt(fixedMonths, 10);
       }
 
-      const baseAmount = parseFloat(amount);
+      const baseAmount = parsedAmount;
       const valuePerInstallment = baseAmount; // O valor digitado é o valor real da parcela
       const groupId = loops > 1 ? Date.now().toString() + Math.random().toString(36).substring(2, 9) : null;
 
@@ -166,7 +183,7 @@ export default function ExpenseForm() {
           <div className="input-group">
             <label className="input-label">Descrição</label>
             <input 
-              type="text" 
+              type="text"
               placeholder="ex: Salário, Aluguel" 
               className="input-field" 
               value={description}
@@ -203,7 +220,7 @@ export default function ExpenseForm() {
                 <div style={{ color: 'var(--text-secondary)' }}>
                   Já gasto: R$ {currentSpent.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                 </div>
-                {(currentSpent + (parseFloat(amount) || 0)) > budgetLimit && (
+                {(currentSpent + (parseBrazilianCurrency(amount) || 0)) > budgetLimit && (
                   <div style={{ color: 'var(--color-crimson-primary)', fontWeight: 'bold', marginTop: '8px', display: 'flex', gap: '6px' }}>
                     <span>⚠️</span> Ultrapassará o limite
                   </div>
@@ -213,12 +230,11 @@ export default function ExpenseForm() {
           </div>
 
           <div className="input-group">
-            <label className="input-label">Valor</label>
+            <label className="input-label">Valor (R$)</label>
             <input 
-              type="number" 
-              step="0.01"
-              min="0.01"
-              placeholder="R$"
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
               className="input-field" 
               value={amount}
               onChange={(e) => setAmount(e.target.value)}

@@ -50,13 +50,26 @@ export async function deleteExpense(id) {
 export async function updateExpenseGroup(groupId, updates) {
   await update(EXPENSES_KEY, (val) => {
     const list = val || [];
-    return list.map(e => (e.groupId === groupId) ? { ...e, ...updates } : e);
+    return list.map(e => {
+      if (e.groupId !== groupId) return e;
+      const resolvedUpdates = typeof updates === 'function' ? updates(e) : updates;
+      return { ...e, ...resolvedUpdates };
+    });
   });
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function clearAllExpenses() {
   await set(EXPENSES_KEY, []);
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
+export async function clearAllFinancialData() {
+  await Promise.all([
+    set(EXPENSES_KEY, []),
+    set(BUDGETS_KEY, {}),
+    set(GOALS_KEY, []),
+  ]);
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 

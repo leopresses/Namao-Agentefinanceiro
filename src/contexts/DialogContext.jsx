@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 import ProModal from '../components/ProModal';
 
 const DialogContext = createContext();
@@ -82,8 +82,8 @@ function DialogItem({ dialog, closeDialog }) {
         
         {dialog.type === 'prompt' && (
           <input 
-            type="number"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             className="input-field" 
             style={{ marginBottom: '24px' }}
             placeholder="R$ 0,00"

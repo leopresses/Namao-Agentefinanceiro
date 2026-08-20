@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
-import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId, getUserProStatus, onAuthChange } from '../services/firebase';
-import { getExpenses, getBudgets, getGoals, restoreCloudData, clearAllExpenses } from '../services/db';
-import { getAllChats, setAllChats } from '../services/chatDb';
+import { logoutGoogle, saveCloudBackup, loadCloudBackup, getUserProStatus, onAuthChange } from '../services/firebase';
+import { getExpenses, getBudgets, getGoals, restoreCloudData, clearAllFinancialData } from '../services/db';
+import { clearAllChats, getAllChats, setAllChats } from '../services/chatDb';
 import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone } from 'lucide-react';
 
 export default function Profile() {
@@ -46,13 +46,12 @@ export default function Profile() {
   const isGoogle = authMethod === 'google';
   const userName = localStorage.getItem('namao_user_name') || 'Usuário';
   const userPhoto = localStorage.getItem('namao_user_photo');
-  const userUid = localStorage.getItem('namao_user_uid');
 
   const handleLogout = async () => {
     const confirmed = await showConfirm('Sair', 'Deseja mesmo sair do aplicativo?');
     if (confirmed) {
       if (isGoogle) {
-        try { await logoutGoogle(); } catch (e) { /* ignore */ }
+        try { await logoutGoogle(); } catch { /* ignore */ }
       }
       localStorage.removeItem('namao_auth_token');
       localStorage.removeItem('namao_user_uid');
@@ -406,14 +405,15 @@ export default function Profile() {
       <div className="glass-card" style={{ marginBottom: '24px', background: 'rgba(244, 63, 94, 0.05)', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
         <h3 style={{ marginBottom: '8px', color: 'var(--color-crimson-dark)' }}>⚠️ Zona de Perigo</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Isso apagará todos os seus lançamentos locais permanentemente. Use apenas se precisar "zerar" o aplicativo.
+          Isso apagará rendas, despesas, orçamentos, metas e conversas salvos neste dispositivo. Use apenas se precisar "zerar" o aplicativo.
         </p>
         <button 
           onClick={async () => {
-            const confirmed = await showConfirm('ZERAR TUDO', 'Atenção: Isso vai APAGAR TODAS AS RENDAS E DESPESAS! Não tem como desfazer. Deseja mesmo continuar?');
+            const confirmed = await showConfirm('ZERAR TUDO', 'Atenção: isso apagará rendas, despesas, orçamentos, metas e conversas deste dispositivo. Não tem como desfazer. Deseja mesmo continuar?');
             if (confirmed) {
-              await clearAllExpenses();
-              showAlert('Sucesso', 'Todos os dados foram apagados.');
+              await clearAllFinancialData();
+              clearAllChats();
+              showAlert('Sucesso', 'Todos os dados locais foram apagados.');
               setTimeout(() => window.location.reload(), 1500);
             }
           }} 

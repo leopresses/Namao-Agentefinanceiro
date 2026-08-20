@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, User, Bot, FileText, Plus, ArrowUpCircle, ArrowDownCircle, Mic, X } from 'lucide-react';
+import { getIdToken } from '../services/firebase';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -44,9 +45,13 @@ const Sidebar = () => {
       
       setIsProcessing(true);
       try {
+        const token = await getIdToken();
         const response = await fetch('/api/extract-expense', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({ text })
         });
         
@@ -62,13 +67,18 @@ const Sidebar = () => {
         params.set('voice', 'true');
         
         navigate(`/expense/new?${params.toString()}`);
-      } catch (err) {
+      } catch {
         setIsProcessing(false);
         alert('Erro ao processar a voz. Tente novamente.');
       }
     };
 
     recognition.onerror = () => {
+      setIsListening(false);
+      setIsProcessing(false);
+    };
+
+    recognition.onend = () => {
       setIsListening(false);
     };
 

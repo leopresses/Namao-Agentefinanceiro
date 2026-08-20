@@ -1,33 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginWithGooglePopup, loginWithGoogleRedirect, checkGoogleLoginResult, onAuthChange } from '../services/firebase';
+import { loginWithGooglePopup, loginWithGoogleRedirect, checkGoogleLoginResult, onAuthChange, refreshServerAccountStatus } from '../services/firebase';
 
 export default function Login() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Redireciona automaticamente se o usuário já tem sessão local ativa
-  useEffect(() => {
-    const token = localStorage.getItem('namao_auth_token');
-    if (token) {
-      navigate('/', { replace: true });
+  const saveSessionAndNavigate = useCallback(async (user) => {
+    try {
+      await refreshServerAccountStatus();
+    } catch (err) {
+      console.warn('Não foi possível atualizar a assinatura agora:', err);
     }
+    localStorage.setItem('namao_auth_token', 'google');
+    localStorage.setItem('namao_user_uid', user.uid);
+    localStorage.setItem('namao_user_name', user.displayName || '');
+    localStorage.setItem('namao_user_photo', user.photoURL || '');
+    navigate('/', { replace: true });
   }, [navigate]);
 
   // Observa se o Firebase já restaurou a sessão do usuário
   useEffect(() => {
     const unsubscribe = onAuthChange((user) => {
       if (user) {
-        localStorage.setItem('namao_auth_token', 'google');
-        localStorage.setItem('namao_user_uid', user.uid);
-        localStorage.setItem('namao_user_name', user.displayName || '');
-        localStorage.setItem('namao_user_photo', user.photoURL || '');
-        navigate('/', { replace: true });
+        saveSessionAndNavigate(user);
       }
     });
     return unsubscribe;
-  }, [navigate]);
+  }, [saveSessionAndNavigate]);
 
   // Checa se o usuário acabou de voltar de um redirecionamento do Google (mobile)
   useEffect(() => {
@@ -36,11 +37,7 @@ export default function Login() {
         setIsLoading(true);
         const user = await checkGoogleLoginResult();
         if (user) {
-          localStorage.setItem('namao_auth_token', 'google');
-          localStorage.setItem('namao_user_uid', user.uid);
-          localStorage.setItem('namao_user_name', user.displayName || '');
-          localStorage.setItem('namao_user_photo', user.photoURL || '');
-          navigate('/', { replace: true });
+          await saveSessionAndNavigate(user);
         }
       } catch (err) {
         console.error('Firebase Redirect Error:', err);
@@ -50,7 +47,7 @@ export default function Login() {
       }
     }
     handleRedirect();
-  }, [navigate]);
+  }, [saveSessionAndNavigate]);
 
   const handleGoogleLogin = async () => {
     setError('');
@@ -59,11 +56,7 @@ export default function Login() {
     try {
       // Usamos SEMPRE Popup porque o Redirect tem um bug crônico no Firebase com navegadores mobile modernos (Safari/Chrome bloqueiam cookies de terceiros cross-domain, fazendo o redirect retornar null).
       const user = await loginWithGooglePopup();
-      localStorage.setItem('namao_auth_token', 'google');
-      localStorage.setItem('namao_user_uid', user.uid);
-      localStorage.setItem('namao_user_name', user.displayName || '');
-      localStorage.setItem('namao_user_photo', user.photoURL || '');
-      navigate('/');
+      await saveSessionAndNavigate(user);
     } catch (err) {
       console.error('Firebase Auth Error:', err);
       const code = err?.code || '';
@@ -72,7 +65,13 @@ export default function Login() {
       if (code === 'auth/popup-closed-by-user') {
         msg = 'Você fechou a janela de login antes de finalizar.';
       } else if (code === 'auth/popup-blocked') {
-        msg = '⚠️ ALERTA: Seu navegador bloqueou a janela do Google! Se você está abrindo pelo Instagram/Facebook, clique nos 3 pontinhos no canto superior e escolha "Abrir no Navegador" (Safari/Chrome).';
+        try {
+          await loginWithGoogleRedirect();
+          return;
+        } catch (redirectError) {
+          console.error('Firebase Redirect Error:', redirectError);
+          msg = 'Seu navegador bloqueou a janela de login. Abra o app no Safari ou Chrome e tente novamente.';
+        }
       } else if (code === 'auth/unauthorized-domain') {
         msg = 'Este domínio não está autorizado no Firebase. Adicione o domínio na aba Authentication > Settings.';
       } else if (code === 'auth/configuration-not-found') {

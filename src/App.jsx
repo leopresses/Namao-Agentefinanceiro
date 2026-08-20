@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -19,7 +19,7 @@ import { DialogProvider } from './contexts/DialogContext';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAutoSync } from './hooks/useAutoSync';
 import { onAuthChange } from './services/firebase';
-import { Wifi, WifiOff, RefreshCw, Check } from 'lucide-react';
+import { WifiOff, RefreshCw } from 'lucide-react';
 
 function SyncStatusBadge() {
   const { isOnline, syncStatus } = useAutoSync();
@@ -57,11 +57,20 @@ function SyncStatusBadge() {
 }
 
 function RequireAuth({ children }) {
-  const token = localStorage.getItem('namao_auth_token');
   const location = useLocation();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [user, setUser] = useState(null);
 
-  // Se não tem token de autenticação local, redireciona para o login
-  if (!token) {
+  useEffect(() => onAuthChange((currentUser) => {
+    setUser(currentUser);
+    setIsCheckingAuth(false);
+  }), []);
+
+  if (isCheckingAuth) {
+    return <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>Verificando acesso...</div>;
+  }
+
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

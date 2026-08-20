@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Fingerprint } from 'lucide-react';
 import { logoutGoogle } from '../services/firebase';
 
@@ -6,50 +6,52 @@ export default function BiometricLock({ children, requireLock }) {
   const [unlocked, setUnlocked] = useState(!requireLock);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (requireLock) {
-      handleBiometricUnlock();
-    }
-  }, [requireLock]);
-
-  const handleBiometricUnlock = async () => {
+  async function handleBiometricUnlock() {
+    setError('');
     try {
       if (!window.PublicKeyCredential) {
-        setUnlocked(true); // Fallback
+        setError('Este navegador não suporta biometria. Entre novamente para desativar o App Lock.');
         return;
       }
       const savedIdStr = localStorage.getItem('namao_biometric_id');
       if (!savedIdStr) {
-        // Fallback se não houver credencial salva
-        setUnlocked(true);
+        setError('A credencial biométrica não foi encontrada neste dispositivo.');
         return;
       }
 
       const savedIdArray = JSON.parse(savedIdStr);
       const credIdBuffer = new Uint8Array(savedIdArray);
-      
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
-      
+
       await navigator.credentials.get({
         publicKey: {
-          challenge: challenge,
+          challenge,
           allowCredentials: [{
             id: credIdBuffer,
             type: 'public-key',
-            transports: ['internal']
+            transports: ['internal'],
           }],
           timeout: 60000,
-          userVerification: "required"
-        }
+          userVerification: 'required',
+        },
       });
-      
+
       setUnlocked(true);
     } catch (err) {
       console.error('Biometria falhou', err);
       setError('Falha ao reconhecer biometria. Tente novamente.');
     }
-  };
+  }
+
+  useEffect(() => {
+    if (requireLock) {
+      setUnlocked(false);
+      handleBiometricUnlock();
+    } else {
+      setUnlocked(true);
+    }
+  }, [requireLock]);
 
   if (unlocked) {
     return <>{children}</>;

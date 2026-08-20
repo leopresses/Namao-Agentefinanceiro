@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getExpenseById, deleteExpense, updateExpense, getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
@@ -51,8 +51,6 @@ export default function ExpenseDetails() {
 
   const isIncome = expense.type === 'income';
   const isPaid = expense.status === 'paid';
-  const color = isIncome ? 'var(--color-emerald-light)' : (isPaid ? 'var(--color-emerald-dark)' : 'var(--color-crimson-light)');
-
   return (
     <div style={{ paddingBottom: '80px' }}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
@@ -70,7 +68,7 @@ export default function ExpenseDetails() {
           
           <h1 style={{ 
             fontSize: '2.5rem', 
-            color: isIncome ? 'var(--color-emerald-dark)' : 'var(--color-emerald-dark)', 
+            color: isIncome ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)',
             marginBottom: '16px' 
           }}>
             R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

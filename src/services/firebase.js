@@ -25,7 +25,6 @@ export const googleProvider = new GoogleAuthProvider();
 
 export const loginWithGooglePopup = async () => {
   const result = await signInWithPopup(auth, googleProvider);
-  await grantAdminProStatus(result.user);
   return result.user;
 };
 
@@ -36,25 +35,9 @@ export const loginWithGoogleRedirect = async () => {
 export const checkGoogleLoginResult = async () => {
   const result = await getRedirectResult(auth);
   if (result?.user) {
-    await grantAdminProStatus(result.user);
     return result.user;
   }
   return null;
-};
-
-// =============================================
-// Privilégios de Administrador
-// =============================================
-const grantAdminProStatus = async (user) => {
-  if (user && user.email === 'lpresses17@gmail.com') {
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, { isPro: true, aiMessageCount: 0 }, { merge: true });
-      console.log('✅ Status PRO concedido automaticamente para o Admin.');
-    } catch (e) {
-      console.error('Falha ao conceder PRO:', e);
-    }
-  }
 };
 
 export const logoutGoogle = async () => {
@@ -75,6 +58,17 @@ export async function getIdToken() {
   return user.getIdToken();
 }
 
+// O servidor confirma o status da conta e, quando configurado, provisiona o administrador.
+export async function refreshServerAccountStatus() {
+  const token = await getIdToken();
+  const response = await fetch('/api/account', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Não foi possível atualizar o status da conta.');
+  return response.json();
+}
+
 // Observador de estado de autenticação
 export function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
@@ -89,10 +83,10 @@ export const saveCloudBackup = async (expensesData, chatsData, budgetsData, goal
   const uid = getSecureUserId();
   if (!uid) throw new Error("Usuário não autenticado");
 
-  const userRef = doc(db, 'users', uid);
+  const backupRef = doc(db, 'users', uid, 'private', 'backup');
   const payload = {
     expenses: expensesData || [],
-    lastBackup: new Date().toISOString()
+    lastBackup: new Date().toISOString(),
   };
   if (chatsData !== undefined) {
     payload.chats = chatsData;
@@ -103,15 +97,21 @@ export const saveCloudBackup = async (expensesData, chatsData, budgetsData, goal
   if (goalsData !== undefined) {
     payload.goals = goalsData;
   }
-  await setDoc(userRef, payload, { merge: true });
+
+  // O Firestore limita documentos a 1 MiB. Reservamos margem para metadados.
+  if (new Blob([JSON.stringify(payload)]).size > 850000) {
+    throw new Error('O backup ficou grande demais. Exclua conversas antigas e tente novamente.');
+  }
+
+  await setDoc(backupRef, payload, { merge: true });
 };
 
 export const loadCloudBackup = async () => {
   const uid = getSecureUserId();
   if (!uid) throw new Error("Usuário não autenticado");
 
-  const userRef = doc(db, 'users', uid);
-  const docSnap = await getDoc(userRef);
+  const backupRef = doc(db, 'users', uid, 'private', 'backup');
+  const docSnap = await getDoc(backupRef);
   
   if (docSnap.exists()) {
     const data = docSnap.data();
@@ -122,6 +122,21 @@ export const loadCloudBackup = async () => {
       goals: data.goals || []
     };
   }
+
+  // Compatibilidade com backups gravados antes da separação de privilégios.
+  const legacySnap = await getDoc(doc(db, 'users', uid));
+  if (legacySnap.exists()) {
+    const legacy = legacySnap.data();
+    if (legacy.expenses || legacy.chats || legacy.budgets || legacy.goals) {
+      return {
+        expenses: legacy.expenses || [],
+        chats: legacy.chats || null,
+        budgets: legacy.budgets || {},
+        goals: legacy.goals || []
+      };
+    }
+  }
+
   return { expenses: [], chats: null, budgets: {}, goals: [] };
 };
 
@@ -147,7 +162,9 @@ export const getUserProStatus = async () => {
       count = 0;
     }
 
-    const isPro = !!data.isPro;
+    const expiresAt = data.proExpiresAt ? new Date(data.proExpiresAt) : null;
+    const isAdmin = data.planType === 'admin';
+    const isPro = !!data.isPro && (isAdmin || !!expiresAt && expiresAt.getTime() > Date.now());
     localStorage.setItem('namao_is_pro', isPro ? 'true' : 'false');
 
     return {
