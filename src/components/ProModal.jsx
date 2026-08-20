@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Check, Star, Shield, Cloud, Zap, X } from 'lucide-react';
 import { getIdToken } from '../services/firebase';
 
@@ -103,7 +103,7 @@ export default function ProModal({ isOpen, onClose }) {
               position: 'absolute', top: 0, right: 0, background: '#FFD700', color: '#000',
               fontSize: '0.65rem', padding: '2px 8px', borderBottomLeftRadius: '8px', fontWeight: '800'
             }}>MAIS POPULAR</div>
-            {loading ? 'Aguarde...' : 'Plano Anual - R$ 89,00'}
+            {loading ? 'Aguarde...' : 'Acesso Anual - R$ 89,00'}
             <div style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.9, marginTop: '2px' }}>Apenas R$ 7,41 por mês</div>
           </button>
           
@@ -117,13 +117,13 @@ export default function ProModal({ isOpen, onClose }) {
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            {loading ? 'Aguarde...' : 'Plano Mensal - R$ 9,90'}
+            {loading ? 'Aguarde...' : 'Acesso Mensal - R$ 9,90'}
           </button>
         </div>
 
         <div style={{ textAlign: 'center', marginTop: '16px' }}>
           <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-            Pagamento seguro processado pelo Mercado Pago. Cancele quando quiser.
+            Pagamento único processado pelo Mercado Pago. O acesso mensal dura 30 dias e o anual, 365 dias.
           </span>
         </div>
       </div>

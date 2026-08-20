@@ -7,11 +7,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'NaMão - Agente Financeiro',
         short_name: 'NaMão',
         description: 'Seu agente financeiro pessoal com IA',
+        lang: 'pt-BR',
         start_url: '/',
         scope: '/',
         theme_color: '#FDFBF7',

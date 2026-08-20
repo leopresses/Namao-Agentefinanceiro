@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getGoals } from '../services/db';
 import { Target, Plus } from 'lucide-react';
@@ -15,6 +15,9 @@ export default function Goals() {
       setGoals(data);
     }
     load();
+
+    window.addEventListener('namao_data_changed', load);
+    return () => window.removeEventListener('namao_data_changed', load);
   }, []);
 
   return (

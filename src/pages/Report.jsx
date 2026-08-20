@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { getExpenses } from '../services/db';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -30,6 +30,9 @@ export default function Report() {
       setAllExpenses(data);
     }
     loadData();
+
+    window.addEventListener('namao_data_changed', loadData);
+    return () => window.removeEventListener('namao_data_changed', loadData);
   }, []);
 
   useEffect(() => {
@@ -92,6 +95,10 @@ export default function Report() {
   };
 
   const handleExportPDF = async () => {
+    if (displayedExpenses.length === 0) {
+      showAlert('Atenção', 'Não há movimentações no período selecionado para exportar.');
+      return;
+    }
     if (!reportRefs.current || reportRefs.current.length === 0) return;
     setIsExporting(true);
     
@@ -221,11 +228,21 @@ export default function Report() {
           onClick={handleExportPDF} 
           className="btn-primary" 
           style={{ width: '100%' }}
-          disabled={isExporting}
+          disabled={isExporting || displayedExpenses.length === 0}
         >
           {isExporting ? 'Gerando...' : 'Exportar & Compartilhar'}
         </button>
       </div>
+
+      {displayedExpenses.length === 0 && (
+        <div className="glass-card" style={{ textAlign: 'center', padding: '32px 16px', marginBottom: '32px' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>📊</div>
+          <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>Nenhum lançamento no período</h4>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+            Alterne o mês ou adicione novas receitas/despesas para visualizar relatórios e gráficos completos.
+          </p>
+        </div>
+      )}
 
       {/* Gráfico de Pizza (Categorias) */}
       {totalExpenseAmount > 0 && (

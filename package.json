@@ -13,16 +13,20 @@
     "@google/generative-ai": "^0.24.1",
     "firebase": "^12.13.0",
     "firebase-admin": "^13.4.0",
-    "groq-sdk": "^1.2.0",
-    "mercadopago": "^2.0.15",
     "html2canvas": "^1.4.1",
     "idb-keyval": "^6.2.4",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
+    "mercadopago": "^2.0.15",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-router-dom": "^7.15.1",
+    "react-router-dom": "^7.18.2",
     "recharts": "^3.8.1"
+  },
+  "overrides": {
+    "dompurify": "^3.4.14",
+    "protobufjs": "^7.6.5",
+    "websocket-driver": "^0.7.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

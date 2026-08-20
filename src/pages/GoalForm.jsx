@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { addGoal, updateGoal, deleteGoal, getGoals } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { Trash2 } from 'lucide-react';
+import { parseBrazilianCurrency } from '../utils/currency';
 
 const EMOJIS = ['🎯', '🐷', '🚗', '✈️', '🏠', '💻', '💍', '🎓', '🏥', '🎉', '🏍️', '📱'];
 
@@ -41,16 +42,16 @@ export default function GoalForm() {
     e.preventDefault();
     if (!title || !targetAmount) return;
 
-    const tAmount = parseFloat(targetAmount.toString().replace(',', '.'));
-    const cAmount = parseFloat(currentAmount.toString().replace(',', '.')) || 0;
+    const tAmount = parseBrazilianCurrency(targetAmount);
+    const cAmount = currentAmount.trim() === '' ? 0 : parseBrazilianCurrency(currentAmount);
 
-    if (isNaN(tAmount) || tAmount <= 0) {
+    if (tAmount === null || tAmount <= 0) {
       showAlert('Atenção', 'O valor da meta deve ser maior que zero.');
       return;
     }
 
-    if (cAmount < 0) {
-      showAlert('Atenção', 'O valor guardado não pode ser negativo.');
+    if (cAmount === null || cAmount < 0) {
+      showAlert('Atenção', 'O valor guardado deve ser um número válido e não negativo.');
       return;
     }
 
@@ -85,7 +86,7 @@ export default function GoalForm() {
   };
 
   const addFunds = (amountToAdd) => {
-    const cAmount = parseFloat(currentAmount.toString().replace(',', '.')) || 0;
+    const cAmount = parseBrazilianCurrency(currentAmount) || 0;
     let newTotal = cAmount + amountToAdd;
     if (newTotal < 0) newTotal = 0;
     setCurrentAmount(newTotal.toFixed(2));

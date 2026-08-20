@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { HelpCircle, X } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
@@ -76,10 +76,10 @@ export default function HelpModal() {
             O <strong>NaMão</strong> é o seu Agente Financeiro Inteligente. Veja tudo o que você pode fazer:
           </p>
           <ul style={{ paddingLeft: '20px', marginBottom: '16px', fontSize: '0.85rem' }}>
-            <li style={{ marginBottom: '8px' }}><strong>➕ Lançamentos:</strong> Use o botão central para adicionar Rendas ou Despesas. O Saldo do Mês é atualizado automaticamente (Rendas - Todas as Despesas).</li>
+            <li style={{ marginBottom: '8px' }}><strong>➕ Lançamentos:</strong> Use o botão central para adicionar Rendas ou Despesas. O Saldo do Mês considera as rendas e as despesas já pagas.</li>
             <li style={{ marginBottom: '8px' }}><strong>🔄 Recorrência e Parcelas:</strong> Você pode repetir uma conta ativando o "Switch" e escolhendo entre Parcelado ou Fixo.</li>
             <li style={{ marginBottom: '8px' }}><strong>📅 Planejamento Futuro:</strong> Marque a situação como "Planejado" para anotar gastos futuros. Eles não descontam do seu saldo, mas geram alertas!</li>
-            <li style={{ marginBottom: '8px' }}><strong>☁️ Sincronização e Offline:</strong> O app funciona sem internet. Quando o sinal volta, ele sincroniza tudo com a nuvem do Google de forma automática e invisível.</li>
+            <li style={{ marginBottom: '8px' }}><strong>☁️ Sincronização e Offline:</strong> Seus lançamentos ficam disponíveis sem internet neste dispositivo. O backup e a sincronização automática na nuvem são recursos do NaMão Pro.</li>
             <li style={{ marginBottom: '8px' }}><strong>📊 Relatórios:</strong> Acesse a aba de gráficos para ter uma visão visual e baixar relatórios das suas finanças.</li>
           </ul>
           

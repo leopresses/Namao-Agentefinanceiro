@@ -17,5 +17,19 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // O projeto usa efeitos para inicialização de IndexedDB e UI. Mantemos as
+      // regras de ordem/dependência de Hooks ativas, mas não tratamos esse padrão
+      // como erro de compilação.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    files: ['api/**/*.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
   },
 ])

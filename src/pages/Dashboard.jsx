@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
@@ -34,13 +34,18 @@ export default function Dashboard() {
     }
     loadData();
 
+    window.addEventListener('namao_data_changed', loadData);
+
     const unsubscribe = onAuthChange(async (user) => {
       if (user) {
         const proData = await getUserProStatus();
         setIsPro(proData.isPro);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      window.removeEventListener('namao_data_changed', loadData);
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -88,11 +93,18 @@ export default function Dashboard() {
 
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+  const formatLocalDate = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const todayStr = today.toISOString().split('T')[0];
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(today);
+  const tomorrowStr = formatLocalDate(tomorrow);
 
   const urgentItems = allExpenses.filter(item => 
     item.type === 'expense' && 
@@ -197,7 +209,7 @@ export default function Dashboard() {
       </div>
 
       {/* Progresso dos Orçamentos */}
-      {Object.entries(budgets).filter(([_, limit]) => limit > 0).length > 0 && (
+      {Object.entries(budgets).filter(([, limit]) => limit > 0).length > 0 && (
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h3 style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Orçamentos do Mês</h3>
@@ -205,7 +217,7 @@ export default function Dashboard() {
           </div>
           <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {Object.entries(budgets)
-              .filter(([_, limit]) => limit > 0)
+              .filter(([, limit]) => limit > 0)
               .map(([catId, limit]) => {
 
               const spent = categoryTotals[catId] || 0;
