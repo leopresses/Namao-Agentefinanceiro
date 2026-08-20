@@ -1,7 +1,7 @@
 // Firebase - Configuração protegida via variáveis de ambiente do Vite
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -138,6 +138,13 @@ export const loadCloudBackup = async () => {
   }
 
   return { expenses: [], chats: null, budgets: {}, goals: [] };
+};
+
+export const deleteCloudBackup = async () => {
+  const uid = getSecureUserId();
+  if (!uid) throw new Error("Usuário não autenticado");
+
+  await deleteDoc(doc(db, 'users', uid, 'private', 'backup'));
 };
 
 // =============================================

@@ -29,7 +29,7 @@ export default function Budgets() {
 
     const numValue = parseBrazilianCurrency(newLimit);
     
-    if (newLimit.toString().trim() === '') {
+    if (newLimit.toString().trim() === '' || numValue === 0) {
       // Remove o limite
       const updated = { ...budgets };
       delete updated[categoryId];

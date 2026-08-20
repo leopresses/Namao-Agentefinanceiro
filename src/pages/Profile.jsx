@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
-import { logoutGoogle, saveCloudBackup, loadCloudBackup, getUserProStatus, onAuthChange } from '../services/firebase';
+import { logoutGoogle, saveCloudBackup, loadCloudBackup, deleteCloudBackup, getUserProStatus, onAuthChange } from '../services/firebase';
 import { getExpenses, getBudgets, getGoals, restoreCloudData, clearAllFinancialData } from '../services/db';
 import { clearAllChats, getAllChats, setAllChats } from '../services/chatDb';
-import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone } from 'lucide-react';
+import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone, CircleHelp, ShieldCheck } from 'lucide-react';
 import AdminPanel from '../components/AdminPanel';
 
 export default function Profile() {
@@ -15,6 +15,7 @@ export default function Profile() {
   const [theme, setTheme] = useState(localStorage.getItem('namao_theme') || 'light');
   const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('namao_biometric') === 'true');
   const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
+  const [cloudBackupProtected, setCloudBackupProtected] = useState(localStorage.getItem('namao_cloud_backup_protected') === 'true');
   const { showProModal } = useDialog();
 
   React.useEffect(() => {
@@ -76,6 +77,11 @@ export default function Profile() {
       const budgets = await getBudgets();
       const goals = await getGoals();
       await saveCloudBackup(expenses, chats, budgets, goals);
+      const now = new Date().toISOString();
+      localStorage.removeItem('namao_cloud_backup_protected');
+      localStorage.setItem('namao_last_sync_time', now);
+      setCloudBackupProtected(false);
+      setLastBackup(now);
       showAlert('Sucesso', 'Seus dados, orçamentos, metas e conversas com a IA foram salvos na nuvem do Google!');
     } catch (err) {
       console.error(err);
@@ -110,6 +116,8 @@ export default function Profile() {
           if (cloudData.chats) {
             setAllChats(cloudData.chats);
           }
+          localStorage.removeItem('namao_cloud_backup_protected');
+          setCloudBackupProtected(false);
           showAlert('Sucesso', 'Dados, orçamentos, metas e conversas restaurados da nuvem com sucesso!');
         } else {
           showAlert('Aviso', 'Não há dados salvos na sua nuvem ainda.');
@@ -121,6 +129,61 @@ export default function Profile() {
         setIsSyncing(false);
       }
     }
+  };
+
+  const handleDeleteCloudBackup = async () => {
+    if (!isGoogle) return;
+    if (!isPro) {
+      showProModal();
+      return;
+    }
+
+    const confirmed = await showConfirm(
+      'Excluir backup da nuvem',
+      'Isso apagará somente a cópia salva na nuvem. Os dados deste dispositivo serão mantidos e a sincronização automática ficará pausada até você fazer um novo backup manual. Deseja continuar?'
+    );
+    if (!confirmed) return;
+
+    setIsSyncing(true);
+    try {
+      await deleteCloudBackup();
+      localStorage.setItem('namao_cloud_backup_protected', 'true');
+      localStorage.removeItem('namao_last_sync_time');
+      localStorage.setItem('namao_pending_sync', 'false');
+      setCloudBackupProtected(true);
+      setLastBackup(null);
+      showAlert('Backup excluído', 'A cópia em nuvem foi excluída. Seus dados locais continuam neste dispositivo.');
+    } catch (err) {
+      console.error(err);
+      showAlert('Erro', 'Não foi possível excluir o backup da nuvem agora.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleResetLocalData = async () => {
+    // Mesmo uma conta que hoje não é PRO pode ter um backup de uma assinatura
+    // anterior. Por segurança, nunca deixamos o reset local sobrescrevê-lo.
+    const preservesCloud = isGoogle;
+    const cloudMessage = preservesCloud
+      ? ' Seu backup na nuvem será preservado e a sincronização automática ficará pausada até você restaurar ou fizer um novo backup manual.'
+      : '';
+    const confirmed = await showConfirm(
+      'ZERAR DADOS LOCAIS',
+      `Atenção: isso apagará rendas, despesas, orçamentos, metas e conversas deste dispositivo. Não tem como desfazer.${cloudMessage}`
+    );
+    if (!confirmed) return;
+
+    if (preservesCloud) {
+      localStorage.setItem('namao_cloud_backup_protected', 'true');
+      localStorage.setItem('namao_pending_sync', 'false');
+      setCloudBackupProtected(true);
+    }
+
+    await clearAllFinancialData();
+    clearAllChats();
+    showAlert('Sucesso', 'Todos os dados locais foram apagados.');
+    setTimeout(() => window.location.reload(), 1500);
   };
 
   const toggleTheme = () => {
@@ -254,6 +317,11 @@ export default function Profile() {
           <p style={{ fontSize: '0.75rem', color: 'var(--color-emerald-primary)', fontWeight: '600', marginBottom: '24px' }}>
             Último backup: {formatTime(lastBackup)}
           </p>
+          {cloudBackupProtected && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--color-crimson-dark)', margin: '-12px 0 18px' }}>
+              A sincronização automática está pausada para preservar sua cópia em nuvem. Faça um backup manual quando quiser substituí-la.
+            </p>
+          )}
 
           <button 
             onClick={handleCloudBackup} 
@@ -277,6 +345,19 @@ export default function Profile() {
           >
             <CloudDownload size={20} />
             {isSyncing ? 'Sincronizando...' : 'Restaurar da Nuvem'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDeleteCloudBackup}
+            disabled={isSyncing}
+            style={{
+              width: '100%', padding: '14px', borderRadius: '16px', marginTop: '12px',
+              border: '1px solid rgba(244, 63, 94, 0.35)', background: 'transparent',
+              color: 'var(--color-crimson-dark)', fontWeight: '600', cursor: 'pointer'
+            }}
+          >
+            Excluir Backup da Nuvem
           </button>
         </div>
       )}
@@ -404,6 +485,20 @@ export default function Profile() {
 
       <AdminPanel showAlert={showAlert} showConfirm={showConfirm} />
 
+      <div className="glass-card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ marginBottom: '12px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ShieldCheck size={20} color="var(--color-emerald-primary)" /> Ajuda e privacidade
+        </h3>
+        <button type="button" onClick={() => navigate('/help')} style={{ width: '100%', justifyContent: 'space-between', padding: '13px 0', background: 'transparent', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><CircleHelp size={19} color="var(--color-emerald-primary)" /> Central de Ajuda</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
+        </button>
+        <button type="button" onClick={() => navigate('/privacy')} style={{ width: '100%', justifyContent: 'space-between', padding: '13px 0 0', background: 'transparent', color: 'var(--text-primary)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><ShieldCheck size={19} color="var(--color-emerald-primary)" /> Política de Privacidade</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
+        </button>
+      </div>
+
       {/* Danger Zone */}
       <div className="glass-card" style={{ marginBottom: '24px', background: 'rgba(244, 63, 94, 0.05)', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
         <h3 style={{ marginBottom: '8px', color: 'var(--color-crimson-dark)' }}>⚠️ Zona de Perigo</h3>
@@ -411,15 +506,7 @@ export default function Profile() {
           Isso apagará rendas, despesas, orçamentos, metas e conversas salvos neste dispositivo. Use apenas se precisar "zerar" o aplicativo.
         </p>
         <button 
-          onClick={async () => {
-            const confirmed = await showConfirm('ZERAR TUDO', 'Atenção: isso apagará rendas, despesas, orçamentos, metas e conversas deste dispositivo. Não tem como desfazer. Deseja mesmo continuar?');
-            if (confirmed) {
-              await clearAllFinancialData();
-              clearAllChats();
-              showAlert('Sucesso', 'Todos os dados locais foram apagados.');
-              setTimeout(() => window.location.reload(), 1500);
-            }
-          }} 
+          onClick={handleResetLocalData}
           className="btn-danger" 
           style={{ width: '100%', background: 'var(--color-crimson-dark)' }}
         >

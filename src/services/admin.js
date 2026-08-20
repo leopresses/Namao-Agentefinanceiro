@@ -19,8 +19,8 @@ async function adminRequest(payload) {
   return data;
 }
 
-export function getAdminSummary() {
-  return adminRequest({ action: 'summary' });
+export function getAdminSummary(pageToken) {
+  return adminRequest({ action: 'summary', ...(pageToken ? { pageToken } : {}) });
 }
 
 export function findAdminUser(email) {

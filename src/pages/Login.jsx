@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { loginWithGooglePopup, loginWithGoogleRedirect, checkGoogleLoginResult, onAuthChange, refreshServerAccountStatus } from '../services/firebase';
 
 export default function Login() {
@@ -125,7 +125,8 @@ export default function Login() {
         </button>
         
         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '24px', lineHeight: '1.5' }}>
-          Use o Google para sincronizar seus dados em tempo real e nunca perder nenhum lançamento.
+          Serviço destinado a pessoas com 18 anos ou mais. Ao continuar, você confirma que leu a{' '}
+          <Link to="/privacy" style={{ color: 'var(--color-emerald-dark)', fontWeight: '700' }}>Política de Privacidade</Link>.
         </p>
       </div>
     </div>
