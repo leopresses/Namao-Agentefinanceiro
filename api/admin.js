@@ -6,6 +6,7 @@ const GRANT_DURATIONS = {
   '365': 365,
   unlimited: null,
 };
+const MAX_LISTED_USERS = 100;
 
 function normalizeEmail(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -35,17 +36,31 @@ function toPublicUser(authUser, account) {
   };
 }
 
-async function countRegisteredUsers(adminAuth) {
+async function getRegisteredUsers(adminAuth) {
   let total = 0;
   let pageToken;
+  const users = [];
 
   do {
     const page = await adminAuth.listUsers(1000, pageToken);
-    total += page.users.length;
+    for (const user of page.users) {
+      total += 1;
+      if (users.length < MAX_LISTED_USERS && user.email) {
+        users.push({
+          email: normalizeEmail(user.email),
+          name: user.displayName || '',
+        });
+      }
+    }
     pageToken = page.pageToken;
   } while (pageToken);
 
-  return total;
+  users.sort((first, second) => first.email.localeCompare(second.email, 'pt-BR'));
+  return {
+    registeredUsers: total,
+    users,
+    hasMoreUsers: total > users.length,
+  };
 }
 
 async function getUserByEmail(adminAuth, db, email) {
@@ -78,7 +93,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const adminAuth = getAdminAuth();
+    const adminAuth = getAdmAuth();
     const db = getAdminDb();
     const actor = await adminAuth.verifyIdToken(idToken);
 
@@ -90,8 +105,7 @@ export default async function handler(req, res) {
     const action = body.action;
 
     if (action === 'summary') {
-      const registeredUsers = await countRegisteredUsers(adminAuth);
-      return res.status(200).json({ registeredUsers });
+      return res.status(200).json(await getRegisteredUsers(adminAuth));
     }
 
     const email = normalizeEmail(body.email);
@@ -152,7 +166,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ user: toPublicUser(target, updated.data() || {}) });
     }
 
-    return res.status(400).json({ error: 'Ação administrativa inválida.' });
+    return res.status(400).json({ error: 'Acção administrativa inválida.' });
   } catch (error) {
     if (error.code === 'auth/user-not-found') {
       return res.status(404).json({ error: 'Nenhum usuário cadastrado com este e-mail.' });
