@@ -21,6 +21,15 @@ export function useAutoSync() {
       return;
     }
 
+    // Depois de "Apagar dados locais", preservamos o último backup até que
+    // a pessoa escolha explicitamente restaurá-lo ou fazer um novo backup.
+    // Isso impede que uma base vazia substitua a cópia em nuvem sem aviso.
+    if (localStorage.getItem('namao_cloud_backup_protected') === 'true') {
+      localStorage.setItem('namao_pending_sync', 'false');
+      setSyncStatus('idle');
+      return;
+    }
+
     syncingRef.current = true;
     setSyncStatus('syncing');
     try {
@@ -36,7 +45,8 @@ export function useAutoSync() {
         getBudgets(),
         getGoals(),
       ]);
-      await saveCloudBackup(expenses, getAllChats(), budgets, goals);
+      const chats = getAllChats();
+      await saveCloudBackup(expenses, chats, budgets, goals);
 
       localStorage.setItem('namao_pending_sync', 'false');
       const now = new Date().toISOString();

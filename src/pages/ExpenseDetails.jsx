@@ -39,8 +39,7 @@ export default function ExpenseDetails() {
     }
   };
 
-  const toggleStatus = async () => {
-    const newStatus = expense.status === 'paid' ? 'unpaid' : 'paid';
+  const updateStatus = async (newStatus) => {
     const updated = { ...expense, status: newStatus };
     await updateExpense(updated);
     setExpense(updated);
@@ -51,6 +50,7 @@ export default function ExpenseDetails() {
 
   const isIncome = expense.type === 'income';
   const isPaid = expense.status === 'paid';
+  const isPlanned = expense.status === 'planned';
   return (
     <div style={{ paddingBottom: '80px' }}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
@@ -87,20 +87,34 @@ export default function ExpenseDetails() {
           </button>
 
           <p style={{ color: 'var(--text-primary)', fontWeight: '600', marginBottom: '8px' }}>
-            Status: {isPaid ? 'Recebido/Pago' : 'Pendente'}
+            Status: {isPaid ? 'Recebido/Pago' : isPlanned ? 'Planejado' : 'Pendente'}
           </p>
           {!isIncome && (
-             <button 
-              onClick={toggleStatus} 
-              className={isPaid ? "btn-danger" : "btn-primary"} 
-              style={{ 
-                width: '100%', 
-                margin: '16px 0', 
-                boxShadow: 'none' 
-              }}
-             >
-               {isPaid ? 'Desfazer Pagamento (Pendente)' : 'Marcar como Pago'}
-             </button>
+            <>
+              <button
+                onClick={() => updateStatus(isPaid ? 'unpaid' : 'paid')}
+                className={isPaid ? "btn-danger" : "btn-primary"}
+                style={{
+                  width: '100%',
+                  margin: '16px 0 8px',
+                  boxShadow: 'none'
+                }}
+              >
+                {isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
+              </button>
+              {!isPlanned && (
+                <button
+                  onClick={() => updateStatus('planned')}
+                  style={{
+                    width: '100%', padding: '12px', borderRadius: '16px',
+                    background: 'transparent', color: '#b45309',
+                    border: '1px solid rgba(245, 158, 11, 0.45)', fontWeight: '600'
+                  }}
+                >
+                  Marcar como Planejada
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

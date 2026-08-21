@@ -20,46 +20,53 @@ function isAdministrator(user) {
 function isActivePro(data, now = Date.now()) {
   if (!data?.isPro) return false;
   if (data.planType === 'admin' || data.planType === 'manual_unlimited') return true;
+  // Compatibilidade com acessos concedidos antes de existir plano/vencimento.
+  if (!data.planType && !data.proExpiresAt) return true;
 
   const expiresAt = new Date(data.proExpiresAt || '');
   return Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() > now;
 }
 
 function toPublicUser(authUser, account) {
+  const hasLegacyProAccess = account?.isPro === true && !account?.planType && !account?.proExpiresAt;
   return {
     uid: authUser.uid,
     email: authUser.email || '',
     name: authUser.displayName || '',
     isPro: isActivePro(account),
-    planType: account?.planType || 'free',
+    planType: account?.planType || (hasLegacyProAccess ? 'legacy' : 'free'),
     proExpiresAt: account?.proExpiresAt || null,
   };
 }
 
-async function getRegisteredUsers(adminAuth) {
+async function countRegisteredUsers(adminAuth) {
   let total = 0;
   let pageToken;
-  const users = [];
 
   do {
     const page = await adminAuth.listUsers(1000, pageToken);
-    for (const user of page.users) {
-      total += 1;
-      if (users.length < MAX_LISTED_USERS && user.email) {
-        users.push({
-          email: normalizeEmail(user.email),
-          name: user.displayName || '',
-        });
-      }
-    }
+    total += page.users.length;
     pageToken = page.pageToken;
   } while (pageToken);
 
-  users.sort((first, second) => first.email.localeCompare(second.email, 'pt-BR'));
+  return total;
+}
+
+async function getRegisteredUsers(adminAuth, pageToken) {
+  const page = await adminAuth.listUsers(MAX_LISTED_USERS, pageToken);
+  const users = page.users
+    .filter((user) => user.email)
+    .map((user) => ({
+      email: normalizeEmail(user.email),
+      name: user.displayName || '',
+    }))
+    .sort((first, second) => first.email.localeCompare(second.email, 'pt-BR'));
+
   return {
-    registeredUsers: total,
     users,
-    hasMoreUsers: total > users.length,
+    hasMoreUsers: Boolean(page.pageToken),
+    nextPageToken: page.pageToken || null,
+    ...(pageToken ? {} : { registeredUsers: await countRegisteredUsers(adminAuth) }),
   };
 }
 
@@ -105,7 +112,8 @@ export default async function handler(req, res) {
     const action = body.action;
 
     if (action === 'summary') {
-      return res.status(200).json(await getRegisteredUsers(adminAuth));
+      const pageToken = typeof body.pageToken === 'string' && body.pageToken ? body.pageToken : undefined;
+      return res.status(200).json(await getRegisteredUsers(adminAuth, pageToken));
     }
 
     const email = normalizeEmail(body.email);
@@ -128,9 +136,15 @@ export default async function handler(req, res) {
       const days = GRANT_DURATIONS[duration];
       const targetIsMainAdmin = isAdministrator(target);
       const now = new Date();
+      const currentExpiry = new Date(account?.proExpiresAt || '');
+      // Liberar dias extras nunca deve reduzir uma assinatura que ainda está
+      // válida. Se já houver PRO ativo, o novo período começa ao fim dele.
+      const baseDate = Number.isFinite(currentExpiry.getTime()) && currentExpiry > now
+        ? currentExpiry
+        : now;
       const expiresAt = targetIsMainAdmin || days === null
         ? null
-        : new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+        : new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
       const planType = targetIsMainAdmin ? 'admin' : days === null ? 'manual_unlimited' : 'manual';
       const accountRef = db.collection('users').doc(target.uid);
 

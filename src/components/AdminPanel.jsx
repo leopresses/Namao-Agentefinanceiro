@@ -24,6 +24,7 @@ export default function AdminPanel({ showAlert, showConfirm }) {
   const [duration, setDuration] = useState('30');
   const [isSearching, setIsSearching] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const refreshSummary = async () => {
     const nextSummary = await getAdminSummary();
@@ -64,6 +65,30 @@ export default function AdminPanel({ showAlert, showConfirm }) {
       showAlert('Usuário não encontrado', error.message);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (!summary?.nextPageToken || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const nextSummary = await getAdminSummary(summary.nextPageToken);
+      setSummary((currentSummary) => {
+        if (!currentSummary) return currentSummary;
+        const users = [...(currentSummary.users || []), ...(nextSummary.users || [])]
+          .sort((first, second) => first.email.localeCompare(second.email, 'pt-BR'));
+        return {
+          ...currentSummary,
+          users,
+          hasMoreUsers: nextSummary.hasMoreUsers,
+          nextPageToken: nextSummary.nextPageToken,
+        };
+      });
+    } catch (error) {
+      showAlert('Não foi possível carregar', error.message);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -133,7 +158,7 @@ export default function AdminPanel({ showAlert, showConfirm }) {
         <div style={{ color: 'var(--text-primary)', fontSize: '0.86rem', fontWeight: '700', marginBottom: '8px' }}>
           E-mails cadastrados
         </div>
-        <div style={{ maxHeight: '148px', overflowY: 'auto', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)' }}>
+        <div style={{ maxHeight: '180px', overflowY: 'auto', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)' }}>
           {(summary.users || []).map((user) => (
             <button
               key={user.email}
@@ -147,9 +172,14 @@ export default function AdminPanel({ showAlert, showConfirm }) {
             </button>
           ))}
           {summary.hasMoreUsers && (
-            <div style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: '0.76rem' }}>
-              Exibindo os primeiros 100 usuários.
-            </div>
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              style={{ width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', color: 'var(--color-emerald-dark)', fontSize: '0.8rem', fontWeight: '700' }}
+            >
+              {isLoadingMore ? 'Carregando...' : 'Carregar mais e-mails'}
+            </button>
           )}
           {!summary.users?.length && (
             <div style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
@@ -158,7 +188,7 @@ export default function AdminPanel({ showAlert, showConfirm }) {
           )}
         </div>
         <p style={{ margin: '7px 0 0', color: 'var(--text-secondary)', fontSize: '0.72rem' }}>
-          Toque em um e-mail para preencher a busca.
+          Exibindo {(summary.users || []).length} de {summary.registeredUsers} usuários. Toque em um e-mail para preencher a busca.
         </p>
       </div>
 
@@ -181,7 +211,9 @@ export default function AdminPanel({ showAlert, showConfirm }) {
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', overflowWrap: 'anywhere', marginTop: '2px' }}>{selectedUser.email}</div>
           <div style={{ color: selectedUser.isPro ? '#b8860b' : 'var(--text-secondary)', fontSize: '0.82rem', margin: '10px 0 14px' }}>
             {selectedUser.isPro
-              ? `PRO ${selectedUser.planType === 'manual_unlimited' ? 'sem prazo' : `até ${formatExpiration(selectedUser.proExpiresAt, selectedUser.planType)}`}`
+              ? selectedUser.planType === 'legacy'
+                ? 'PRO (acesso anterior, sem vencimento registrado)'
+                : `PRO ${selectedUser.planType === 'manual_unlimited' ? 'sem prazo' : `até ${formatExpiration(selectedUser.proExpiresAt, selectedUser.planType)}`}`
               : 'Plano gratuito'}
           </div>
 

@@ -1,7 +1,7 @@
 // Firebase - Configuração protegida via variáveis de ambiente do Vite
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -140,6 +140,13 @@ export const loadCloudBackup = async () => {
   return { expenses: [], chats: null, budgets: {}, goals: [] };
 };
 
+export const deleteCloudBackup = async () => {
+  const uid = getSecureUserId();
+  if (!uid) throw new Error("Usuário não autenticado");
+
+  await deleteDoc(doc(db, 'users', uid, 'private', 'backup'));
+};
+
 // =============================================
 // Funções NaMão Pro (Freemium)
 // =============================================
@@ -165,7 +172,12 @@ export const getUserProStatus = async () => {
     const expiresAt = data.proExpiresAt ? new Date(data.proExpiresAt) : null;
     const hasUnlimitedManualAccess = data.planType === 'manual_unlimited';
     const isAdmin = data.planType === 'admin';
-    const isPro = !!data.isPro && (isAdmin || hasUnlimitedManualAccess || !!expiresAt && expiresAt.getTime() > Date.now());
+    // Contas PRO criadas antes da inclusão de planos e vencimentos guardavam
+    // apenas isPro. O documento raiz hoje não pode ser alterado pelo cliente,
+    // então reconhecemos somente esse formato legado para não retirar um
+    // acesso que já havia sido concedido.
+    const hasLegacyProAccess = data.isPro === true && !data.planType && !data.proExpiresAt;
+    const isPro = !!data.isPro && (isAdmin || hasUnlimitedManualAccess || hasLegacyProAccess || !!expiresAt && expiresAt.getTime() > Date.now());
     localStorage.setItem('namao_is_pro', isPro ? 'true' : 'false');
 
     return {

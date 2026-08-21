@@ -1,15 +1,6 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-import ExpenseForm from './pages/ExpenseForm';
-import ExpenseDetails from './pages/ExpenseDetails';
-import Profile from './pages/Profile';
-import ChatAI from './pages/ChatAI';
-import Report from './pages/Report';
-import Budgets from './pages/Budgets';
-import Goals from './pages/Goals';
-import GoalForm from './pages/GoalForm';
 import BottomNav from './components/BottomNav';
 import HelpModal from './components/HelpModal';
 import PwaPrompt from './components/PwaPrompt';
@@ -20,6 +11,20 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAutoSync } from './hooks/useAutoSync';
 import { onAuthChange } from './services/firebase';
 import { WifiOff, RefreshCw } from 'lucide-react';
+
+// Relatórios carrega bibliotecas grandes (PDF e gráficos). As telas são
+// carregadas sob demanda para a primeira abertura ficar leve no celular.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const ExpenseForm = lazy(() => import('./pages/ExpenseForm'));
+const ExpenseDetails = lazy(() => import('./pages/ExpenseDetails'));
+const Profile = lazy(() => import('./pages/Profile'));
+const ChatAI = lazy(() => import('./pages/ChatAI'));
+const Report = lazy(() => import('./pages/Report'));
+const Budgets = lazy(() => import('./pages/Budgets'));
+const Goals = lazy(() => import('./pages/Goals'));
+const GoalForm = lazy(() => import('./pages/GoalForm'));
+const Help = lazy(() => import('./pages/Help'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
 function SyncStatusBadge() {
   const { isOnline, syncStatus } = useAutoSync();
@@ -79,7 +84,8 @@ function RequireAuth({ children }) {
 
 function App() {
   const location = useLocation();
-  const hideNav = location.pathname === '/login';
+  const isPublicPage = ['/login', '/help', '/privacy'].includes(location.pathname);
+  const hideNav = isPublicPage;
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   useEffect(() => {
@@ -88,8 +94,11 @@ function App() {
   }, []);
 
   const content = (
-    <Routes>
+    <Suspense fallback={<div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>Carregando...</div>}>
+      <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/help" element={<Help />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       
       {/* Protected Routes */}
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
@@ -104,7 +113,8 @@ function App() {
       <Route path="/goal/:id" element={<RequireAuth><GoalForm /></RequireAuth>} />
       
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 
   return (

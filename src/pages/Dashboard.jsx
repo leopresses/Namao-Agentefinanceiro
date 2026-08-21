@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { getCategory } from '../utils/categories';
 import { getUserProStatus, onAuthChange } from '../services/firebase';
@@ -8,6 +8,7 @@ import { useDialog } from '../contexts/DialogContext';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [allExpenses, setAllExpenses] = useState([]);
   const [displayedExpenses, setDisplayedExpenses] = useState([]);
   const [balance, setBalance] = useState(0);
@@ -16,7 +17,8 @@ export default function Dashboard() {
   const [categoryTotals, setCategoryTotals] = useState({});
   const [goals, setGoals] = useState([]);
   const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
-  const { showProModal } = useDialog();
+  const handledPaymentResult = useRef(null);
+  const { showAlert, showProModal } = useDialog();
   
   // Date tracking for Month Filter
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -47,6 +49,59 @@ export default function Dashboard() {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const paymentResult = new URLSearchParams(location.search).get('payment');
+    if (!paymentResult) return undefined;
+    const paymentKey = `${paymentResult}:${location.search}`;
+    if (handledPaymentResult.current === paymentKey) return undefined;
+    handledPaymentResult.current = paymentKey;
+
+    const params = new URLSearchParams(location.search);
+    params.delete('payment');
+    const cleanSearch = params.toString();
+    window.history.replaceState(null, '', `${location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`);
+
+    let cancelled = false;
+    const notifyPaymentResult = async () => {
+      if (paymentResult === 'failure') {
+        showAlert('Pagamento não concluído', 'Nenhuma cobrança foi confirmada. Você pode tentar novamente quando quiser.');
+        return;
+      }
+      if (paymentResult === 'pending') {
+        showAlert('Pagamento pendente', 'Assim que o Mercado Pago aprovar o pagamento, seu acesso PRO será liberado automaticamente.');
+        return;
+      }
+      if (paymentResult !== 'success') return;
+
+      // O retorno do Mercado Pago pode chegar alguns segundos antes do webhook.
+      // Consultamos novamente por pouco tempo para que o usuário não precise
+      // atualizar a página manualmente após pagar.
+      let proData = { isPro: false };
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          proData = await getUserProStatus();
+        } catch (error) {
+          console.warn('Falha ao atualizar assinatura após pagamento:', error);
+        }
+        if (proData.isPro || attempt === 3) break;
+        await new Promise((resolve) => window.setTimeout(resolve, 1500));
+      }
+
+      if (cancelled) return;
+      setIsPro(proData.isPro);
+      if (proData.isPro) {
+        showAlert('Pagamento aprovado!', 'Seu NaMão PRO já está ativo. Aproveite todos os recursos.');
+      } else {
+        showAlert('Pagamento recebido', 'Estamos confirmando o pagamento. Seu acesso PRO será liberado automaticamente em instantes.');
+      }
+    };
+
+    notifyPaymentResult();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.search, navigate, showAlert]);
 
   useEffect(() => {
     // Filter data by currently selected month and year

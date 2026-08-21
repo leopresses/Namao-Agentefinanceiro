@@ -4,6 +4,8 @@ import { getBearerToken, handleCors } from './_lib/http.js';
 function isActivePro(data) {
   if (!data?.isPro) return false;
   if (data.planType === 'admin' || data.planType === 'manual_unlimited') return true;
+  // Compatibilidade com acessos concedidos antes de existir plano/vencimento.
+  if (!data.planType && !data.proExpiresAt) return true;
   const expiresAt = new Date(data.proExpiresAt || '');
   return Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() > Date.now();
 }
