@@ -5,6 +5,7 @@ import { getBearerToken, handleCors } from './_lib/http.js';
 const FREE_MONTHLY_MESSAGES = 5;
 const MAX_USER_TEXT_LENGTH = 2000;
 const MAX_CONTEXT_LENGTH = 25000;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 function isActivePro(data, now) {
   if (!data?.isPro) return false;
@@ -124,7 +125,7 @@ ${contextData}`;
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: GEMINI_MODEL,
       systemInstruction: systemPrompt,
     });
     const result = await model.generateContent({

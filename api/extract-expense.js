@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getAdminAuth, getAdminDb } from './_lib/firebaseAdmin.js';
 import { getBearerToken, handleCors } from './_lib/http.js';
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 const MAX_TEXT_LENGTH = 500;
 const MAX_REQUESTS_PER_HOUR = 20;
 const CATEGORIES = new Set([
@@ -111,10 +112,12 @@ type (expense ou income).`;
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0, responseMimeType: 'application/json', maxOutputTokens: 256 },
+      // O Gemini 3.6 pode usar parte do orçamento de saída antes de emitir o
+      // JSON. 1024 evita respostas truncadas que não poderiam ser convertidas.
+      generationConfig: { temperature: 0, responseMimeType: 'application/json', maxOutputTokens: 1024 },
     });
     const parsed = JSON.parse(result.response.text() || '{}');
     return res.status(200).json(normalizeResult(parsed));
