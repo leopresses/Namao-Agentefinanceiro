@@ -78,6 +78,10 @@ function normalizeResult(value) {
   };
 }
 
+function getFinishReason(result) {
+  return String(result?.response?.candidates?.[0]?.finishReason || '').trim();
+}
+
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
   if (req.method !== 'POST') {
@@ -139,12 +143,26 @@ type (expense ou income), date (YYYY-MM-DD ou null).`;
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      // O Gemini 3.6 pode usar parte do orçamento de saída antes de emitir o
-      // JSON. 1024 evita respostas truncadas que não poderiam ser convertidas.
-      generationConfig: { temperature: 0, responseMimeType: 'application/json', maxOutputTokens: 1024 },
+      // O Gemini pode usar parte do orçamento de saída antes de emitir o JSON.
+      // Esta margem reduz respostas interrompidas sem ampliar o formato final.
+      generationConfig: { temperature: 0, responseMimeType: 'application/json', maxOutputTokens: 1536 },
     });
+    if (getFinishReason(result) === 'MAX_TOKENS') {
+      throw new Error('A IA interrompeu a extração antes de concluir o lançamento.');
+    }
     const parsed = JSON.parse(result.response.text() || '{}');
-    return res.status(200).json(normalizeResult(parsed));
+    const normalized = normalizeResult(parsed);
+    if (!normalized.amount || !normalized.description) {
+      try {
+        await releaseVoiceQuota(getAdminDb(), decodedUser.uid, quota.hourKey);
+      } catch (releaseError) {
+        console.error('Falha ao devolver a cota de voz após extração incompleta:', releaseError.message);
+      }
+      return res.status(422).json({
+        error: 'Não consegui identificar o valor e a descrição. Tente falar, por exemplo, “gastei 35 reais no mercado”.',
+      });
+    }
+    return res.status(200).json(normalized);
   } catch (error) {
     try {
       await releaseVoiceQuota(getAdminDb(), decodedUser.uid, quota.hourKey);
