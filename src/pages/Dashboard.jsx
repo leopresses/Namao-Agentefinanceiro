@@ -198,7 +198,7 @@ export default function Dashboard() {
             <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
               <Star size={20} fill="currentColor" /> Seja PRO Agora
             </h3>
-            <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9, marginTop: '4px' }}>IA Ilimitada e Backup Seguro na Nuvem</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9, marginTop: '4px' }}>Conversas com IA e Backup Seguro na Nuvem</p>
           </div>
           <ChevronRight size={24} />
         </div>

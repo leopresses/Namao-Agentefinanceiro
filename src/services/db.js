@@ -15,36 +15,78 @@ export async function getExpenseById(id) {
 }
 
 export async function addExpense(expense) {
-  const newExpense = {
-    ...expense,
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString()
-  };
-  
-  await update(EXPENSES_KEY, (val) => {
-    const list = val || [];
-    return [...list, newExpense];
-  });
-  
-  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+  const [newExpense] = await addExpenses([expense]);
   return newExpense;
 }
 
-export async function updateExpense(updatedExpense) {
+// Uma recorrência precisa ser gravada de uma só vez. Assim, uma interrupção
+// durante o salvamento não deixa apenas parte das parcelas no dispositivo ou
+// no backup automático.
+export async function addExpenses(expenses) {
+  const createdAt = new Date().toISOString();
+  const newExpenses = expenses.map((expense) => ({
+    ...expense,
+    id: crypto.randomUUID(),
+    createdAt,
+  }));
+
+  if (newExpenses.length === 0) return [];
+
   await update(EXPENSES_KEY, (val) => {
     const list = val || [];
-    return list.map(e => e.id === updatedExpense.id ? updatedExpense : e);
+    return [...list, ...newExpenses];
   });
+
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+  return newExpenses;
+}
+
+export async function updateExpense(updatedExpense) {
+  let wasUpdated = false;
+  await update(EXPENSES_KEY, (val) => {
+    const list = val || [];
+    return list.map((expense) => {
+      if (expense.id !== updatedExpense.id) return expense;
+      wasUpdated = true;
+      return updatedExpense;
+    });
+  });
+
+  if (!wasUpdated) {
+    throw new Error('Lançamento não encontrado para atualização.');
+  }
+
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
   return updatedExpense;
 }
 
 export async function deleteExpense(id) {
+  let wasDeleted = false;
   await update(EXPENSES_KEY, (val) => {
     const list = val || [];
-    return list.filter(e => e.id !== id);
+    const nextList = list.filter((expense) => expense.id !== id);
+    wasDeleted = nextList.length !== list.length;
+    return nextList;
   });
-  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+  if (wasDeleted) {
+    window.dispatchEvent(new CustomEvent('namao_data_changed'));
+  }
+  return wasDeleted;
+}
+
+export async function deleteExpenseGroup(groupId) {
+  let deletedCount = 0;
+  await update(EXPENSES_KEY, (val) => {
+    const list = val || [];
+    const nextList = list.filter((expense) => expense.groupId !== groupId);
+    deletedCount = list.length - nextList.length;
+    return nextList;
+  });
+
+  if (deletedCount > 0) {
+    window.dispatchEvent(new CustomEvent('namao_data_changed'));
+  }
+  return deletedCount;
 }
 
 export async function updateExpenseGroup(groupId, updates) {

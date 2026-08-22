@@ -4,8 +4,14 @@ import App from './App.jsx'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
 
-registerSW({
-  onNeedRefresh() {},
+let updateServiceWorker;
+
+updateServiceWorker = registerSW({
+  onNeedRefresh() {
+    window.dispatchEvent(new CustomEvent('namao_update_available', {
+      detail: { update: () => updateServiceWorker(true) },
+    }));
+  },
   onOfflineReady() {},
 })
 

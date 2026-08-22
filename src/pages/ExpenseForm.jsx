@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { addExpense, getExpenseById, updateExpense, updateExpenseGroup, getBudgets, getExpenses } from '../services/db';
+import { addExpenses, getExpenseById, updateExpense, updateExpenseGroup, getBudgets, getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { CATEGORIES } from '../utils/categories';
 import { parseBrazilianCurrency } from '../utils/currency';
@@ -10,6 +10,26 @@ function formatLocalDate(d) {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+const RECURRENCE_SUFFIX_PATTERN = /\s\(\d+\/\d+\)$/;
+
+function isValidDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+  const date = new Date(`${value}T12:00:00`);
+  return !Number.isNaN(date.getTime()) && formatLocalDate(date) === value;
+}
+
+function normalizeCategory(value) {
+  return CATEGORIES.some((category) => category.id === value) ? value : 'outros';
+}
+
+function getRecurrenceSuffix(description) {
+  return String(description || '').match(RECURRENCE_SUFFIX_PATTERN)?.[0] || '';
+}
+
+function removeRecurrenceSuffix(description) {
+  return String(description || '').replace(RECURRENCE_SUFFIX_PATTERN, '').trim();
 }
 
 // Função para adicionar meses a uma data (YYYY-MM-DD)
@@ -28,16 +48,18 @@ function addMonths(dateString, monthsToAdd) {
 export default function ExpenseForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const typeParam = searchParams.get('type') || 'expense';
+  const requestedType = searchParams.get('type');
   const editId = searchParams.get('id');
-  const isIncome = typeParam === 'income';
+  const [entryType, setEntryType] = useState(requestedType === 'income' ? 'income' : 'expense');
+  const isIncome = entryType === 'income';
   const isEditing = !!editId;
+  const requestedDate = searchParams.get('date');
 
   const [description, setDescription] = useState(searchParams.get('description') || '');
   const [amount, setAmount] = useState(searchParams.get('amount') || '');
-  const [date, setDate] = useState(formatLocalDate(new Date()));
+  const [date, setDate] = useState(isValidDate(requestedDate) ? requestedDate : formatLocalDate(new Date()));
   const [status, setStatus] = useState(isIncome ? 'paid' : 'unpaid');
-  const [category, setCategory] = useState(searchParams.get('category') || 'outros');
+  const [category, setCategory] = useState(normalizeCategory(searchParams.get('category')));
   
   // Opções de Recorrência (Apenas para novas despesas)
   const [isRecurring, setIsRecurring] = useState(false);
@@ -45,7 +67,9 @@ export default function ExpenseForm() {
   const [installments, setInstallments] = useState(2);
   const [fixedMonths, setFixedMonths] = useState(12);
   const [groupId, setGroupId] = useState(null);
+  const [installmentSuffix, setInstallmentSuffix] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const saveLockRef = useRef(false);
   const { showConfirm, showAlert } = useDialog();
 
   const [budgetLimit, setBudgetLimit] = useState(0);
@@ -82,23 +106,42 @@ export default function ExpenseForm() {
   useEffect(() => {
     if (isEditing) {
       async function loadExpense() {
-        const expense = await getExpenseById(editId);
-        if (expense) {
-          setDescription(expense.description);
+        try {
+          const expense = await getExpenseById(editId);
+          if (!expense) {
+            showAlert('Lançamento não encontrado', 'Este lançamento já foi removido ou não está disponível neste dispositivo.');
+            navigate('/', { replace: true });
+            return;
+          }
+
+          const suffix = expense.groupId ? getRecurrenceSuffix(expense.description) : '';
+          setDescription(suffix ? removeRecurrenceSuffix(expense.description) : expense.description);
           setAmount(expense.amount.toString());
           setDate(expense.date);
-          setStatus(expense.status);
-          setCategory(expense.category || 'outros');
+          setEntryType(expense.type === 'income' ? 'income' : 'expense');
+          setStatus(expense.type === 'income' ? 'paid' : expense.status);
+          setCategory(normalizeCategory(expense.category));
           setGroupId(expense.groupId || null);
+          setInstallmentSuffix(suffix);
+        } catch (error) {
+          console.error('Falha ao carregar lançamento:', error);
+          showAlert('Erro', 'Não foi possível abrir este lançamento para edição.');
+          navigate('/', { replace: true });
         }
       }
       loadExpense();
     }
-  }, [editId, isEditing]);
+  }, [editId, isEditing, navigate, showAlert]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!description || !amount || !date || isSaving) return;
+    if (saveLockRef.current || !amount || !date) return;
+
+    const cleanDescription = description.trim();
+    if (!cleanDescription) {
+      showAlert('Atenção', 'Informe uma descrição para o lançamento.');
+      return;
+    }
 
     const parsedAmount = parseBrazilianCurrency(amount);
     if (parsedAmount === null || parsedAmount <= 0) {
@@ -118,10 +161,13 @@ export default function ExpenseForm() {
       }
     }
 
+    saveLockRef.current = true;
     setIsSaving(true);
     try {
       if (isEditing) {
         const newAmount = parsedAmount;
+        const baseDescription = groupId ? removeRecurrenceSuffix(cleanDescription) : cleanDescription;
+        const currentDescription = installmentSuffix ? `${baseDescription}${installmentSuffix}` : baseDescription;
 
         if (groupId) {
           const updateAll = await showConfirm(
@@ -132,18 +178,18 @@ export default function ExpenseForm() {
           if (updateAll) {
             await updateExpenseGroup(groupId, (expense) => {
               const suffix = expense.description.match(/\s\(\d+\/\d+\)$/)?.[0] || '';
-              return { amount: newAmount, category, description: `${description}${suffix}` };
+              return { amount: newAmount, category, description: `${baseDescription}${suffix}` };
             });
           }
         }
 
         await updateExpense({
           id: editId,
-          description,
+          description: currentDescription,
           amount: newAmount,
           date,
-          type: typeParam,
-          status,
+          type: entryType,
+          status: isIncome ? 'paid' : status,
           category,
           groupId
         });
@@ -151,29 +197,33 @@ export default function ExpenseForm() {
         const valuePerInstallment = parsedAmount;
         const recurringGroupId = loops > 1 ? Date.now().toString() + Math.random().toString(36).substring(2, 9) : null;
 
-        for (let i = 0; i < loops; i++) {
-          let desc = description;
-          if (currentRecurrence === 'parcelada' || currentRecurrence === 'fixa') {
-            desc = `${description} (${i + 1}/${loops})`;
-          }
-
-          await addExpense({
+        const newExpenses = Array.from({ length: loops }, (_, index) => {
+          const desc = currentRecurrence === 'unica'
+            ? cleanDescription
+            : `${cleanDescription} (${index + 1}/${loops})`;
+          return {
             groupId: recurringGroupId,
             description: desc,
             amount: valuePerInstallment,
-            date: addMonths(date, i),
-            type: typeParam,
-            status: (i === 0) ? status : 'unpaid',
+            date: addMonths(date, index),
+            type: entryType,
+            // Rendas entram no saldo do mês no restante do aplicativo. Mantê-las
+            // como pagas evita que detalhes e relatórios mostrem "Pendente".
+            status: isIncome ? 'paid' : (index === 0 ? status : 'unpaid'),
             category
-          });
-        }
+          };
+        });
+        await addExpenses(newExpenses);
       }
 
       navigate('/');
     } catch (error) {
       console.error('Falha ao salvar lançamento:', error);
-      showAlert('Erro', 'Não foi possível salvar o lançamento. Tente novamente.');
+      showAlert('Erro', error.message === 'Lançamento não encontrado para atualização.'
+        ? 'Este lançamento não existe mais. Atualize a lista e tente novamente.'
+        : 'Não foi possível salvar o lançamento. Tente novamente.');
     } finally {
+      saveLockRef.current = false;
       setIsSaving(false);
     }
   };
@@ -230,7 +280,7 @@ export default function ExpenseForm() {
                 <div style={{ color: 'var(--text-secondary)' }}>
                   Já gasto: R$ {currentSpent.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                 </div>
-                {(currentSpent + (parseBrazilianCurrency(amount) || 0)) > budgetLimit && (
+                {status !== 'planned' && (currentSpent + (parseBrazilianCurrency(amount) || 0)) > budgetLimit && (
                   <div style={{ color: 'var(--color-crimson-primary)', fontWeight: 'bold', marginTop: '8px', display: 'flex', gap: '6px' }}>
                     <span>⚠️</span> Ultrapassará o limite
                   </div>
