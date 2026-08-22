@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getExpenses } from '../services/db';
-import { getCategory } from '../utils/categories';
+import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
 import { getIdToken, getUserProStatus, onAuthChange } from '../services/firebase';
 import { MessageSquarePlus, History, Trash2, X, Sparkles } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
+import { buildFinancialContext } from '../utils/financialContext';
 
 export default function ChatAI() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [expenses, setExpenses] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [activeChatId, setActiveChatIdState] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -18,21 +17,17 @@ export default function ChatAI() {
   const messagesEndRef = useRef(null);
   const { showConfirm, showProModal } = useDialog();
 
-  // Carregar despesas e status pro
+  // Carregar o status Pro.
   useEffect(() => {
-    async function load() {
-      const data = await getExpenses();
-      setExpenses(data);
-    }
-    load();
-    
     const unsubscribe = onAuthChange(async (user) => {
       if (user) {
         const pro = await getUserProStatus();
         setProStatus(pro);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const refreshChatList = useCallback(() => {
@@ -123,35 +118,18 @@ export default function ChatAI() {
     }
 
     try {
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth();
-      const currentYear = currentDate.getFullYear();
-      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-      const currentMonthExpenses = expenses.filter(item => {
-        const itemDate = new Date(item.date + 'T12:00:00');
-        return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
+      // A leitura acontece no envio para incluir até os lançamentos criados
+      // pouco antes da pergunta, mesmo que a tela do chat já estivesse aberta.
+      const [expensesData, budgetsData, goalsData] = await Promise.all([
+        getExpenses(),
+        getBudgets(),
+        getGoals(),
+      ]);
+      const contextData = buildFinancialContext({
+        expenses: expensesData,
+        budgets: budgetsData,
+        goals: goalsData,
       });
-
-      const toPay = currentMonthExpenses.filter(e => e.type === 'expense' && e.status === 'unpaid').reduce((a, b) => a + b.amount, 0);
-      
-      let balance = 0;
-      currentMonthExpenses.forEach(item => {
-        if (item.type === 'income') {
-          balance += item.amount;
-        } else if (item.status === 'paid') {
-          balance -= item.amount;
-        }
-      });
-
-      const contextData = `
-        Mês Atual: ${monthNames[currentMonth]} de ${currentYear}.
-        Resumo deste mês:
-        - Saldo Atual do Mês (Renda - Despesas Pagas): R$ ${balance.toFixed(2)}.
-        - Faturas a Pagar neste mês: R$ ${toPay.toFixed(2)}.
-        Aqui está a lista de movimentações DO MÊS ATUAL:
-        ${currentMonthExpenses.map(e => `- ${e.date}: ${e.description} | Categoria: ${e.category ? getCategory(e.category).label : 'Outros'} | R$ ${e.amount} | Tipo: ${e.type} | Status: ${e.status}`).join('\n')}
-      `;
       // Para Vercel, usamos caminho relativo. Em dev, o Vite Proxy lida com isso se configurado,
       // mas na Vercel o backend já roda no mesmo domínio do frontend.
       const apiUrl = import.meta.env.VITE_API_URL || '/api/chat';
