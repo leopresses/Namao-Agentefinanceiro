@@ -420,14 +420,14 @@ export default function Report() {
                       </td>
                       <td style={{ padding: '16px 16px' }}>
                         <span style={{ 
-                          background: exp.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : (exp.status === 'planned' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(244, 63, 94, 0.1)'), 
-                          color: exp.status === 'paid' ? '#059669' : (exp.status === 'planned' ? '#f59e0b' : '#E11D48'),
+                          background: exp.type === 'income' || exp.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : (exp.status === 'planned' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(244, 63, 94, 0.1)'),
+                          color: exp.type === 'income' || exp.status === 'paid' ? '#059669' : (exp.status === 'planned' ? '#f59e0b' : '#E11D48'),
                           padding: '4px 12px',
                           borderRadius: '100px',
                           fontSize: '12px',
                           fontWeight: '600'
                         }}>
-                          {exp.status === 'paid' ? 'Pago' : (exp.status === 'planned' ? 'Planejado' : 'Pendente')}
+                          {exp.type === 'income' ? 'Renda' : (exp.status === 'paid' ? 'Pago' : (exp.status === 'planned' ? 'Planejado' : 'Pendente'))}
                         </span>
                       </td>
                       <td style={{ padding: '16px 16px', textAlign: 'right', fontWeight: '700', color: exp.type === 'income' ? '#059669' : '#E11D48' }}>

@@ -1,49 +1,86 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getExpenseById, deleteExpense, updateExpense, getExpenses } from '../services/db';
+import { getExpenseById, deleteExpense, deleteExpenseGroup, updateExpense } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 
 export default function ExpenseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { showConfirm } = useDialog();
+  const { showConfirm, showAlert } = useDialog();
   const [expense, setExpense] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const actionLockRef = useRef(false);
 
   useEffect(() => {
     async function load() {
-      const data = await getExpenseById(id);
-      if (data) setExpense(data);
-      else navigate('/'); 
-    }
-    load();
-  }, [id, navigate]);
-
-  const handleDelete = async () => {
-    if (expense.groupId) {
-      const confirmedAll = await showConfirm('Excluir Recorrência', 'Deseja excluir TODAS as parcelas ligadas a este lançamento (incluindo as antigas já pagas)?');
-      if (confirmedAll) {
-        const all = await getExpenses();
-        const toDelete = all.filter(e => e.groupId === expense.groupId);
-        for (let e of toDelete) {
-          await deleteExpense(e.id);
-        }
+      try {
+        const data = await getExpenseById(id);
+        if (data) setExpense(data);
+        else navigate('/');
+      } catch (error) {
+        console.error('Falha ao carregar lançamento:', error);
+        showAlert('Erro', 'Não foi possível carregar este lançamento.');
         navigate('/');
-        return;
       }
     }
+    load();
+  }, [id, navigate, showAlert]);
 
-    const confirmed = await showConfirm('Excluir Lançamento', 'Tem certeza que deseja excluir APENAS esta movimentação?');
-    if (confirmed) {
-      await deleteExpense(id);
-      navigate('/');
+  const handleDelete = async () => {
+    if (actionLockRef.current || !expense) return;
+    actionLockRef.current = true;
+
+    try {
+      if (expense.groupId) {
+        const confirmedAll = await showConfirm('Excluir Recorrência', 'Deseja excluir TODAS as parcelas ligadas a este lançamento (incluindo as antigas já pagas)?');
+        if (confirmedAll) {
+          setIsDeleting(true);
+          const deletedCount = await deleteExpenseGroup(expense.groupId);
+          if (deletedCount === 0) {
+            showAlert('Lançamento não encontrado', 'Esta recorrência já não existe neste dispositivo.');
+          }
+          navigate('/');
+          return;
+        }
+      }
+
+      const confirmed = await showConfirm('Excluir Lançamento', 'Tem certeza que deseja excluir APENAS esta movimentação?');
+      if (confirmed) {
+        setIsDeleting(true);
+        const wasDeleted = await deleteExpense(id);
+        if (!wasDeleted) {
+          showAlert('Lançamento não encontrado', 'Este lançamento já não existe neste dispositivo.');
+        }
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Falha ao excluir lançamento:', error);
+      showAlert('Erro', 'Não foi possível excluir o lançamento. Tente novamente.');
+    } finally {
+      actionLockRef.current = false;
+      setIsDeleting(false);
     }
   };
 
   const updateStatus = async (newStatus) => {
-    const updated = { ...expense, status: newStatus };
-    await updateExpense(updated);
-    setExpense(updated);
-    navigate(-1); // Volta para a tela anterior
+    if (actionLockRef.current || !expense) return;
+    actionLockRef.current = true;
+    setIsUpdatingStatus(true);
+    try {
+      const updated = { ...expense, status: newStatus };
+      await updateExpense(updated);
+      setExpense(updated);
+      navigate(-1); // Volta para a tela anterior
+    } catch (error) {
+      console.error('Falha ao atualizar situação:', error);
+      showAlert('Erro', error.message === 'Lançamento não encontrado para atualização.'
+        ? 'Este lançamento não existe mais. Atualize a lista e tente novamente.'
+        : 'Não foi possível atualizar a situação do lançamento.');
+    } finally {
+      actionLockRef.current = false;
+      setIsUpdatingStatus(false);
+    }
   };
 
   if (!expense) return <div style={{ padding: '24px', textAlign: 'center' }}>Carregando...</div>;
@@ -87,12 +124,13 @@ export default function ExpenseDetails() {
           </button>
 
           <p style={{ color: 'var(--text-primary)', fontWeight: '600', marginBottom: '8px' }}>
-            Status: {isPaid ? 'Recebido/Pago' : isPlanned ? 'Planejado' : 'Pendente'}
+            Status: {isIncome ? 'Renda registrada' : isPaid ? 'Pago' : isPlanned ? 'Planejado' : 'Pendente'}
           </p>
           {!isIncome && (
             <>
               <button
                 onClick={() => updateStatus(isPaid ? 'unpaid' : 'paid')}
+                disabled={isDeleting || isUpdatingStatus}
                 className={isPaid ? "btn-danger" : "btn-primary"}
                 style={{
                   width: '100%',
@@ -100,11 +138,12 @@ export default function ExpenseDetails() {
                   boxShadow: 'none'
                 }}
               >
-                {isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
+                {isUpdatingStatus ? 'Atualizando...' : isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
               </button>
               {!isPlanned && (
                 <button
                   onClick={() => updateStatus('planned')}
+                  disabled={isDeleting || isUpdatingStatus}
                   style={{
                     width: '100%', padding: '12px', borderRadius: '16px',
                     background: 'transparent', color: '#b45309',
@@ -119,8 +158,8 @@ export default function ExpenseDetails() {
         </div>
       </div>
 
-      <button onClick={handleDelete} className="btn-danger" style={{ width: '100%', marginTop: '24px' }}>
-        Excluir {isIncome ? 'Renda' : 'Despesa'}
+      <button onClick={handleDelete} disabled={isDeleting || isUpdatingStatus} className="btn-danger" style={{ width: '100%', marginTop: '24px' }}>
+        {isDeleting ? 'Excluindo...' : `Excluir ${isIncome ? 'Renda' : 'Despesa'}`}
       </button>
     </div>
   );
