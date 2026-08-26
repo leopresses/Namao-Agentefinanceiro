@@ -1,14 +1,15 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Plus, User, Bot, FileText, ArrowDownCircle, ArrowUpCircle, Mic, X } from 'lucide-react';
+import { getIdToken } from '../services/firebase';
 
 const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const recognitionRef = useRef(null);
-
-  if (location.pathname === '/login') return null;
+  const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const toggleMenu = (e) => {
     e.preventDefault();
@@ -19,9 +20,6 @@ const BottomNav = () => {
     setShowMenu(false);
     navigate(`/expense/new?type=${type}`);
   };
-
-  const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleVoice = () => {
     setShowMenu(false);
@@ -47,9 +45,13 @@ const BottomNav = () => {
       
       setIsProcessing(true);
       try {
+        const token = await getIdToken();
         const response = await fetch('/api/extract-expense', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({ text })
         });
         
@@ -65,13 +67,18 @@ const BottomNav = () => {
         params.set('voice', 'true');
         
         navigate(`/expense/new?${params.toString()}`);
-      } catch (err) {
+      } catch {
         setIsProcessing(false);
         alert('Erro ao processar a voz. Tente novamente.');
       }
     };
 
     recognition.onerror = () => {
+      setIsListening(false);
+      setIsProcessing(false);
+    };
+
+    recognition.onend = () => {
       setIsListening(false);
     };
 
@@ -85,6 +92,8 @@ const BottomNav = () => {
     setIsListening(false);
     setIsProcessing(false);
   };
+
+  if (location.pathname === '/login') return null;
 
   return (
     <>

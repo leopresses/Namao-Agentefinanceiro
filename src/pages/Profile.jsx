@@ -1,19 +1,30 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
-import { logoutGoogle, saveCloudBackup, loadCloudBackup, getSecureUserId, getUserProStatus, onAuthChange } from '../services/firebase';
-import { getExpenses, getBudgets, getGoals, restoreCloudData, clearAllExpenses } from '../services/db';
-import { getAllChats, setAllChats } from '../services/chatDb';
-import { CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone } from 'lucide-react';
+import { logoutGoogle, saveCloudBackup, loadCloudBackup, deleteCloudBackup, getUserProStatus, onAuthChange } from '../services/firebase';
+import { getExpenses, getBudgets, getGoals, restoreCloudData, clearAllFinancialData } from '../services/db';
+import { clearAllChats, getAllChats, setAllChats } from '../services/chatDb';
+import { BellRing, CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone, CircleHelp, ShieldCheck } from 'lucide-react';
+import AdminPanel from '../components/AdminPanel';
+import { applyTheme, getStoredTheme } from '../utils/theme';
+import { IS_LOCAL_TEST_MODE } from '../config/environment';
+import {
+  areBrowserNotificationsAvailable,
+  getBrowserNotificationPermission,
+  getProNotificationsEnabled,
+  setProNotificationsEnabled,
+} from '../utils/proNotifications';
 
 export default function Profile() {
   const navigate = useNavigate();
   const { showAlert, showConfirm } = useDialog();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastBackup, setLastBackup] = useState(localStorage.getItem('namao_last_sync_time'));
-  const [theme, setTheme] = useState(localStorage.getItem('namao_theme') || 'light');
+  const [theme, setTheme] = useState(getStoredTheme);
   const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('namao_biometric') === 'true');
   const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
+  const [cloudBackupProtected, setCloudBackupProtected] = useState(localStorage.getItem('namao_cloud_backup_protected') === 'true');
+  const [proNotificationsEnabled, setProNotificationsEnabledState] = useState(getProNotificationsEnabled);
   const { showProModal } = useDialog();
 
   React.useEffect(() => {
@@ -46,24 +57,28 @@ export default function Profile() {
   const isGoogle = authMethod === 'google';
   const userName = localStorage.getItem('namao_user_name') || 'Usuário';
   const userPhoto = localStorage.getItem('namao_user_photo');
-  const userUid = localStorage.getItem('namao_user_uid');
 
   const handleLogout = async () => {
     const confirmed = await showConfirm('Sair', 'Deseja mesmo sair do aplicativo?');
     if (confirmed) {
       if (isGoogle) {
-        try { await logoutGoogle(); } catch (e) { /* ignore */ }
+        try { await logoutGoogle(); } catch { /* ignore */ }
       }
       localStorage.removeItem('namao_auth_token');
       localStorage.removeItem('namao_user_uid');
       localStorage.removeItem('namao_user_name');
       localStorage.removeItem('namao_user_photo');
       localStorage.removeItem('namao_is_pro');
+      localStorage.removeItem('namao_local_test_user');
       navigate('/login');
     }
   };
 
   const handleCloudBackup = async () => {
+    if (IS_LOCAL_TEST_MODE) {
+      showAlert('Teste local', 'O backup em nuvem está desativado nesta versão de teste para proteger os seus dados reais.');
+      return;
+    }
     if (!isGoogle) return;
     if (!isPro) {
       showProModal();
@@ -76,6 +91,11 @@ export default function Profile() {
       const budgets = await getBudgets();
       const goals = await getGoals();
       await saveCloudBackup(expenses, chats, budgets, goals);
+      const now = new Date().toISOString();
+      localStorage.removeItem('namao_cloud_backup_protected');
+      localStorage.setItem('namao_last_sync_time', now);
+      setCloudBackupProtected(false);
+      setLastBackup(now);
       showAlert('Sucesso', 'Seus dados, orçamentos, metas e conversas com a IA foram salvos na nuvem do Google!');
     } catch (err) {
       console.error(err);
@@ -86,6 +106,10 @@ export default function Profile() {
   };
 
   const handleCloudRestore = async () => {
+    if (IS_LOCAL_TEST_MODE) {
+      showAlert('Teste local', 'A restauração da nuvem está desativada nesta versão de teste para proteger os seus dados reais.');
+      return;
+    }
     if (!isGoogle) return;
     if (!isPro) {
       showProModal();
@@ -110,6 +134,8 @@ export default function Profile() {
           if (cloudData.chats) {
             setAllChats(cloudData.chats);
           }
+          localStorage.removeItem('namao_cloud_backup_protected');
+          setCloudBackupProtected(false);
           showAlert('Sucesso', 'Dados, orçamentos, metas e conversas restaurados da nuvem com sucesso!');
         } else {
           showAlert('Aviso', 'Não há dados salvos na sua nuvem ainda.');
@@ -123,11 +149,70 @@ export default function Profile() {
     }
   };
 
+  const handleDeleteCloudBackup = async () => {
+    if (IS_LOCAL_TEST_MODE) {
+      showAlert('Teste local', 'A exclusão do backup em nuvem está desativada nesta versão de teste.');
+      return;
+    }
+    if (!isGoogle) return;
+    if (!isPro) {
+      showProModal();
+      return;
+    }
+
+    const confirmed = await showConfirm(
+      'Excluir backup da nuvem',
+      'Isso apagará somente a cópia salva na nuvem. Os dados deste dispositivo serão mantidos e a sincronização automática ficará pausada até você fazer um novo backup manual. Deseja continuar?'
+    );
+    if (!confirmed) return;
+
+    setIsSyncing(true);
+    try {
+      await deleteCloudBackup();
+      localStorage.setItem('namao_cloud_backup_protected', 'true');
+      localStorage.removeItem('namao_last_sync_time');
+      localStorage.setItem('namao_pending_sync', 'false');
+      setCloudBackupProtected(true);
+      setLastBackup(null);
+      showAlert('Backup excluído', 'A cópia em nuvem foi excluída. Seus dados locais continuam neste dispositivo.');
+    } catch (err) {
+      console.error(err);
+      showAlert('Erro', 'Não foi possível excluir o backup da nuvem agora.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleResetLocalData = async () => {
+    // Mesmo uma conta que hoje não é PRO pode ter um backup de uma assinatura
+    // anterior. Por segurança, nunca deixamos o reset local sobrescrevê-lo.
+    const preservesCloud = isGoogle;
+    const cloudMessage = preservesCloud
+      ? ' Seu backup na nuvem será preservado e a sincronização automática ficará pausada até você restaurar ou fizer um novo backup manual.'
+      : '';
+    const confirmed = await showConfirm(
+      'ZERAR DADOS LOCAIS',
+      `Atenção: isso apagará rendas, despesas, orçamentos, metas e conversas deste dispositivo. Não tem como desfazer.${cloudMessage}`
+    );
+    if (!confirmed) return;
+
+    if (preservesCloud) {
+      localStorage.setItem('namao_cloud_backup_protected', 'true');
+      localStorage.setItem('namao_pending_sync', 'false');
+      setCloudBackupProtected(true);
+    }
+
+    await clearAllFinancialData();
+    clearAllChats();
+    showAlert('Sucesso', 'Todos os dados locais foram apagados.');
+    setTimeout(() => window.location.reload(), 1500);
+  };
+
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
     localStorage.setItem('namao_theme', newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
+    applyTheme(newTheme);
   };
 
   const handleInstallApp = () => {
@@ -139,6 +224,48 @@ export default function Profile() {
     }
 
     window.dispatchEvent(new CustomEvent('trigger-pwa-prompt'));
+  };
+
+  const handleProNotifications = async () => {
+    if (!isPro) {
+      showProModal();
+      return;
+    }
+
+    if (!areBrowserNotificationsAvailable()) {
+      showAlert('Não compatível', 'Este navegador não oferece notificações. Você ainda verá os alertas dentro do NaMão.');
+      return;
+    }
+
+    if (proNotificationsEnabled) {
+      setProNotificationsEnabled(false);
+      setProNotificationsEnabledState(false);
+      showAlert('Alertas pausados', 'Os avisos do navegador foram pausados. Você pode reativá-los quando quiser.');
+      return;
+    }
+
+    let permission = getBrowserNotificationPermission();
+    if (permission === 'default') {
+      permission = await window.Notification.requestPermission();
+    }
+
+    if (permission !== 'granted') {
+      showAlert('Permissão necessária', 'Para receber os avisos, permita notificações do NaMão nas configurações do navegador.');
+      return;
+    }
+
+    setProNotificationsEnabled(true);
+    setProNotificationsEnabledState(true);
+    try {
+      new window.Notification('Alertas do NaMão ativados', {
+        body: 'Você receberá avisos de vencimentos e do limite do orçamento ao abrir o app.',
+        icon: '/logo.png',
+        tag: 'namao-alerts-enabled',
+      });
+    } catch (error) {
+      console.warn('Permissão concedida, mas o aviso de confirmação não pôde ser exibido:', error);
+    }
+    showAlert('Alertas ativados', 'Vamos avisar sobre vencimentos próximos e limites de orçamento quando você abrir o NaMão.');
   };
 
   const toggleBiometric = async () => {
@@ -251,9 +378,19 @@ export default function Profile() {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
             Mantenha seus dados seguros na nuvem do Google. Recurso exclusivo para assinantes PRO.
           </p>
+          {IS_LOCAL_TEST_MODE && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--color-crimson-dark)', marginBottom: '16px' }}>
+              Modo de teste local: backup, restauração e sincronização na nuvem estão desativados.
+            </p>
+          )}
           <p style={{ fontSize: '0.75rem', color: 'var(--color-emerald-primary)', fontWeight: '600', marginBottom: '24px' }}>
             Último backup: {formatTime(lastBackup)}
           </p>
+          {cloudBackupProtected && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--color-crimson-dark)', margin: '-12px 0 18px' }}>
+              A sincronização automática está pausada para preservar sua cópia em nuvem. Faça um backup manual quando quiser substituí-la.
+            </p>
+          )}
 
           <button 
             onClick={handleCloudBackup} 
@@ -277,6 +414,19 @@ export default function Profile() {
           >
             <CloudDownload size={20} />
             {isSyncing ? 'Sincronizando...' : 'Restaurar da Nuvem'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDeleteCloudBackup}
+            disabled={isSyncing}
+            style={{
+              width: '100%', padding: '14px', borderRadius: '16px', marginTop: '12px',
+              border: '1px solid rgba(244, 63, 94, 0.35)', background: 'transparent',
+              color: 'var(--color-crimson-dark)', fontWeight: '600', cursor: 'pointer'
+            }}
+          >
+            Excluir Backup da Nuvem
           </button>
         </div>
       )}
@@ -366,7 +516,7 @@ export default function Profile() {
             <Lock size={24} color={biometricEnabled ? 'var(--color-emerald-primary)' : 'var(--text-secondary)'} />
             <div>
               <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>App Lock</h4>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Exigir Biometria ao abrir o app</p>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Exigir biometria ao abrir ou voltar ao app</p>
             </div>
           </div>
           <div style={{
@@ -381,6 +531,29 @@ export default function Profile() {
             }} />
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={handleProNotifications}
+          style={{
+            width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '16px', background: 'var(--bg-secondary)', borderRadius: '16px',
+            cursor: 'pointer', border: '1px solid var(--glass-border)', marginTop: '12px', textAlign: 'left'
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <BellRing size={24} color={proNotificationsEnabled ? 'var(--color-emerald-primary)' : 'var(--text-secondary)'} />
+            <span>
+              <span style={{ display: 'block', color: 'var(--text-primary)', fontWeight: '500', fontSize: '1rem' }}>Alertas financeiros PRO</span>
+              <span style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                {proNotificationsEnabled ? 'Ativos para vencimentos e orçamento' : 'Avise sobre vencimentos e limite do orçamento'}
+              </span>
+            </span>
+          </span>
+          <span style={{ color: proNotificationsEnabled ? 'var(--color-emerald-dark)' : 'var(--text-tertiary)', fontSize: '0.72rem', fontWeight: '700' }}>
+            {proNotificationsEnabled ? 'ATIVOS' : isPro ? 'ATIVAR' : 'PRO'}
+          </span>
+        </button>
 
         <button
           type="button"
@@ -402,21 +575,30 @@ export default function Profile() {
         </button>
       </div>
 
+      <AdminPanel showAlert={showAlert} showConfirm={showConfirm} />
+
+      <div className="glass-card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ marginBottom: '12px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ShieldCheck size={20} color="var(--color-emerald-primary)" /> Ajuda e privacidade
+        </h3>
+        <button type="button" onClick={() => navigate('/help')} style={{ width: '100%', justifyContent: 'space-between', padding: '13px 0', background: 'transparent', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><CircleHelp size={19} color="var(--color-emerald-primary)" /> Central de Ajuda</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
+        </button>
+        <button type="button" onClick={() => navigate('/privacy')} style={{ width: '100%', justifyContent: 'space-between', padding: '13px 0 0', background: 'transparent', color: 'var(--text-primary)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><ShieldCheck size={19} color="var(--color-emerald-primary)" /> Política de Privacidade</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
+        </button>
+      </div>
+
       {/* Danger Zone */}
       <div className="glass-card" style={{ marginBottom: '24px', background: 'rgba(244, 63, 94, 0.05)', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
         <h3 style={{ marginBottom: '8px', color: 'var(--color-crimson-dark)' }}>⚠️ Zona de Perigo</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Isso apagará todos os seus lançamentos locais permanentemente. Use apenas se precisar "zerar" o aplicativo.
+          Isso apagará rendas, despesas, orçamentos, metas e conversas salvos neste dispositivo. Use apenas se precisar "zerar" o aplicativo.
         </p>
         <button 
-          onClick={async () => {
-            const confirmed = await showConfirm('ZERAR TUDO', 'Atenção: Isso vai APAGAR TODAS AS RENDAS E DESPESAS! Não tem como desfazer. Deseja mesmo continuar?');
-            if (confirmed) {
-              await clearAllExpenses();
-              showAlert('Sucesso', 'Todos os dados foram apagados.');
-              setTimeout(() => window.location.reload(), 1500);
-            }
-          }} 
+          onClick={handleResetLocalData}
           className="btn-danger" 
           style={{ width: '100%', background: 'var(--color-crimson-dark)' }}
         >

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { HelpCircle, X } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
@@ -76,11 +76,13 @@ export default function HelpModal() {
             O <strong>NaMão</strong> é o seu Agente Financeiro Inteligente. Veja tudo o que você pode fazer:
           </p>
           <ul style={{ paddingLeft: '20px', marginBottom: '16px', fontSize: '0.85rem' }}>
-            <li style={{ marginBottom: '8px' }}><strong>➕ Lançamentos:</strong> Use o botão central para adicionar Rendas ou Despesas. O Saldo do Mês é atualizado automaticamente (Rendas - Todas as Despesas).</li>
+            <li style={{ marginBottom: '8px' }}><strong>➕ Lançamentos:</strong> Use o botão central para adicionar Rendas ou Despesas. O Saldo do Mês considera as rendas e as despesas já pagas.</li>
             <li style={{ marginBottom: '8px' }}><strong>🔄 Recorrência e Parcelas:</strong> Você pode repetir uma conta ativando o "Switch" e escolhendo entre Parcelado ou Fixo.</li>
-            <li style={{ marginBottom: '8px' }}><strong>📅 Planejamento Futuro:</strong> Marque a situação como "Planejado" para anotar gastos futuros. Eles não descontam do seu saldo, mas geram alertas!</li>
-            <li style={{ marginBottom: '8px' }}><strong>☁️ Sincronização e Offline:</strong> O app funciona sem internet. Quando o sinal volta, ele sincroniza tudo com a nuvem do Google de forma automática e invisível.</li>
-            <li style={{ marginBottom: '8px' }}><strong>📊 Relatórios:</strong> Acesse a aba de gráficos para ter uma visão visual e baixar relatórios das suas finanças.</li>
+            <li style={{ marginBottom: '8px' }}><strong>📅 Planejamento Futuro:</strong> Marque a situação como "Planejado" para anotar gastos futuros. Eles não descontam do seu saldo atual.</li>
+            <li style={{ marginBottom: '8px' }}><strong>🎯 Orçamentos e Metas:</strong> Os limites mensais somam despesas pagas e a pagar. O valor guardado em uma meta é separado dos seus lançamentos.</li>
+            <li style={{ marginBottom: '8px' }}><strong>☁️ Sincronização e Offline:</strong> Seus lançamentos ficam disponíveis sem internet neste dispositivo. O backup e a sincronização automática na nuvem são recursos do NaMão Pro.</li>
+            <li style={{ marginBottom: '8px' }}><strong>📊 Relatórios:</strong> Confira o saldo realizado e o previsto por mês; o relatório geral reúne os lançamentos até hoje e pode ser exportado em PDF.</li>
+            <li style={{ marginBottom: '8px' }}><strong>🌙 Ajustes do App:</strong> Escolha o tema claro ou escuro e, em dispositivos compatíveis, ative o App Lock biométrico. Ele bloqueia novamente quando o app fica em segundo plano.</li>
           </ul>
           
           <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '0.85rem' }}>

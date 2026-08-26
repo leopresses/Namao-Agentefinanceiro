@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { addGoal, updateGoal, deleteGoal, getGoals } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { Trash2 } from 'lucide-react';
+import { parseBrazilianCurrency } from '../utils/currency';
 
 const EMOJIS = ['🎯', '🐷', '🚗', '✈️', '🏠', '💻', '💍', '🎓', '🏥', '🎉', '🏍️', '📱'];
 
@@ -17,6 +18,8 @@ export default function GoalForm() {
   const [targetAmount, setTargetAmount] = useState('');
   const [currentAmount, setCurrentAmount] = useState('0');
   const [deadline, setDeadline] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (isEditing) {
@@ -39,38 +42,59 @@ export default function GoalForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title || !targetAmount) return;
+    if (isSaving || isDeleting) return;
 
-    const tAmount = parseFloat(targetAmount.toString().replace(',', '.'));
-    const cAmount = parseFloat(currentAmount.toString().replace(',', '.')) || 0;
+    const normalizedTitle = title.trim();
+    if (!normalizedTitle || !targetAmount) {
+      showAlert('Atenção', 'Informe um nome e o valor da meta.');
+      return;
+    }
 
-    if (isNaN(tAmount) || tAmount <= 0) {
+    const tAmount = parseBrazilianCurrency(targetAmount);
+    const cAmount = currentAmount.trim() === '' ? 0 : parseBrazilianCurrency(currentAmount);
+
+    if (tAmount === null || tAmount <= 0) {
       showAlert('Atenção', 'O valor da meta deve ser maior que zero.');
       return;
     }
 
-    if (cAmount < 0) {
-      showAlert('Atenção', 'O valor guardado não pode ser negativo.');
+    if (cAmount === null || cAmount < 0) {
+      showAlert('Atenção', 'O valor guardado deve ser um número válido e não negativo.');
+      return;
+    }
+
+    const today = new Date();
+    const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (deadline && deadline < todayString) {
+      showAlert('Atenção', 'Escolha um prazo a partir de hoje ou deixe o campo em branco.');
       return;
     }
 
     const goalData = {
-      title,
+      title: normalizedTitle,
       icon,
       targetAmount: tAmount,
       currentAmount: cAmount,
       deadline: deadline || null
     };
 
-    if (isEditing) {
-      await updateGoal(id, goalData);
-      showAlert('Sucesso', 'Sua meta foi atualizada!');
-    } else {
-      await addGoal(goalData);
-      showAlert('Sucesso', 'Nova meta criada com sucesso!');
-    }
+    setIsSaving(true);
+    try {
+      if (isEditing) {
+        await updateGoal(id, goalData);
+        showAlert('Sucesso', 'Sua meta foi atualizada!');
+      } else {
+        await addGoal(goalData);
+        showAlert('Sucesso', 'Nova meta criada com sucesso!');
+      }
 
-    navigate('/goals', { replace: true });
+      navigate('/goals', { replace: true });
+    } catch (error) {
+      console.error('Não foi possível salvar a meta:', error);
+      showAlert('Erro', 'Não foi possível salvar a meta. Tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -78,14 +102,22 @@ export default function GoalForm() {
       'Excluir Meta',
       'Tem certeza que deseja apagar essa meta? Essa ação não pode ser desfeita.'
     );
-    if (confirmed) {
+    if (!confirmed || isDeleting) return;
+
+    setIsDeleting(true);
+    try {
       await deleteGoal(id);
       navigate('/goals', { replace: true });
+    } catch (error) {
+      console.error('Não foi possível excluir a meta:', error);
+      showAlert('Erro', 'Não foi possível excluir a meta. Tente novamente.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const addFunds = (amountToAdd) => {
-    const cAmount = parseFloat(currentAmount.toString().replace(',', '.')) || 0;
+    const cAmount = parseBrazilianCurrency(currentAmount) || 0;
     let newTotal = cAmount + amountToAdd;
     if (newTotal < 0) newTotal = 0;
     setCurrentAmount(newTotal.toFixed(2));
@@ -183,18 +215,19 @@ export default function GoalForm() {
             />
           </div>
 
-          <button type="submit" className="btn-primary" style={{ width: '100%', padding: '16px', fontSize: '1rem', marginTop: '12px' }}>
-            {isEditing ? 'Atualizar Meta' : 'Criar Meta'}
+          <button type="submit" disabled={isSaving || isDeleting} className="btn-primary" style={{ width: '100%', padding: '16px', fontSize: '1rem', marginTop: '12px' }}>
+            {isSaving ? 'Salvando...' : isEditing ? 'Atualizar Meta' : 'Criar Meta'}
           </button>
 
           {isEditing && (
             <button
               type="button"
               onClick={handleDelete}
+              disabled={isSaving || isDeleting}
               className="btn-danger"
               style={{ width: '100%', padding: '14px', marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-              <Trash2 size={18} /> Excluir Meta
+              <Trash2 size={18} /> {isDeleting ? 'Excluindo...' : 'Excluir Meta'}
             </button>
           )}
         </form>

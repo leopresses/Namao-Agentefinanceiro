@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { addExpense, getExpenseById, updateExpense, updateExpenseGroup, getBudgets, getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { CATEGORIES } from '../utils/categories';
+import { parseBrazilianCurrency } from '../utils/currency';
+
+function formatLocalDate(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 // Função para adicionar meses a uma data (YYYY-MM-DD)
 function addMonths(dateString, monthsToAdd) {
@@ -14,7 +22,7 @@ function addMonths(dateString, monthsToAdd) {
   if (date.getMonth() !== targetMonth) {
     date.setDate(0); 
   }
-  return date.toISOString().split('T')[0];
+  return formatLocalDate(date);
 }
 
 export default function ExpenseForm() {
@@ -27,7 +35,7 @@ export default function ExpenseForm() {
 
   const [description, setDescription] = useState(searchParams.get('description') || '');
   const [amount, setAmount] = useState(searchParams.get('amount') || '');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatLocalDate(new Date()));
   const [status, setStatus] = useState(isIncome ? 'paid' : 'unpaid');
   const [category, setCategory] = useState(searchParams.get('category') || 'outros');
   
@@ -37,7 +45,8 @@ export default function ExpenseForm() {
   const [installments, setInstallments] = useState(2);
   const [fixedMonths, setFixedMonths] = useState(12);
   const [groupId, setGroupId] = useState(null);
-  const { showConfirm } = useDialog();
+  const [isSaving, setIsSaving] = useState(false);
+  const { showConfirm, showAlert } = useDialog();
 
   const [budgetLimit, setBudgetLimit] = useState(0);
   const [currentSpent, setCurrentSpent] = useState(0);
@@ -46,7 +55,7 @@ export default function ExpenseForm() {
     if (isIncome) return;
     async function checkBudget() {
       const limits = await getBudgets();
-      const limit = parseFloat(limits[category]) || 0;
+      const limit = Number(limits[category]) || 0;
       setBudgetLimit(limit);
 
       if (limit > 0) {
@@ -89,66 +98,84 @@ export default function ExpenseForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!description || !amount || !date) return;
+    if (!description || !amount || !date || isSaving) return;
 
-    if (isEditing) {
-      // Atualizar a despesa
-      const newAmount = parseFloat(amount);
-      
-      if (groupId) {
-        const updateAll = await showConfirm(
-          'Atualizar Parcelas',
-          'Esta é uma conta parcelada/recorrente. Deseja aplicar essa edição para TODAS as parcelas deste grupo (meses passados e futuros)? (Clique em OK para Todas, ou Cancelar para alterar apenas este mês).'
-        );
-        
-        if (updateAll) {
-          await updateExpenseGroup(groupId, { amount: newAmount, category, description });
-        }
-      }
+    const parsedAmount = parseBrazilianCurrency(amount);
+    if (parsedAmount === null || parsedAmount <= 0) {
+      showAlert('Atenção', 'Informe um valor válido maior que zero. Ex.: 1.250,50');
+      return;
+    }
 
-      await updateExpense({
-        id: editId,
-        description,
-        amount: newAmount,
-        date,
-        type: typeParam,
-        status,
-        category,
-        groupId
-      });
-    } else {
-      // Criar nova (com suporte a recorrência)
-      let loops = 1;
-      let currentRecurrence = 'unica';
-      if (isRecurring) {
-        currentRecurrence = recurrenceType;
-        if (recurrenceType === 'parcelada') loops = parseInt(installments, 10);
-        if (recurrenceType === 'fixa') loops = parseInt(fixedMonths, 10);
-      }
-
-      const baseAmount = parseFloat(amount);
-      const valuePerInstallment = baseAmount; // O valor digitado é o valor real da parcela
-      const groupId = loops > 1 ? Date.now().toString() + Math.random().toString(36).substring(2, 9) : null;
-
-      for (let i = 0; i < loops; i++) {
-        let desc = description;
-        if (currentRecurrence === 'parcelada' || currentRecurrence === 'fixa') {
-          desc = `${description} (${i + 1}/${loops})`;
-        }
-
-        await addExpense({
-          groupId,
-          description: desc,
-          amount: valuePerInstallment,
-          date: addMonths(date, i),
-          type: typeParam,
-          status: (i === 0) ? status : 'unpaid',
-          category
-        });
+    let loops = 1;
+    let currentRecurrence = 'unica';
+    if (!isEditing && isRecurring) {
+      currentRecurrence = recurrenceType;
+      loops = Number(recurrenceType === 'parcelada' ? installments : fixedMonths);
+      const maximum = recurrenceType === 'parcelada' ? 120 : 240;
+      if (!Number.isInteger(loops) || loops < 2 || loops > maximum) {
+        showAlert('Atenção', `Informe um número inteiro entre 2 e ${maximum} para a recorrência.`);
+        return;
       }
     }
 
-    navigate('/'); 
+    setIsSaving(true);
+    try {
+      if (isEditing) {
+        const newAmount = parsedAmount;
+
+        if (groupId) {
+          const updateAll = await showConfirm(
+            'Atualizar Parcelas',
+            'Deseja aplicar valor, categoria e descrição para todas as parcelas deste grupo? Datas e situações individuais serão preservadas. (OK para todas; Cancelar para somente esta).'
+          );
+
+          if (updateAll) {
+            await updateExpenseGroup(groupId, (expense) => {
+              const suffix = expense.description.match(/\s\(\d+\/\d+\)$/)?.[0] || '';
+              return { amount: newAmount, category, description: `${description}${suffix}` };
+            });
+          }
+        }
+
+        await updateExpense({
+          id: editId,
+          description,
+          amount: newAmount,
+          date,
+          type: typeParam,
+          status,
+          category,
+          groupId
+        });
+      } else {
+        const valuePerInstallment = parsedAmount;
+        const recurringGroupId = loops > 1 ? Date.now().toString() + Math.random().toString(36).substring(2, 9) : null;
+
+        for (let i = 0; i < loops; i++) {
+          let desc = description;
+          if (currentRecurrence === 'parcelada' || currentRecurrence === 'fixa') {
+            desc = `${description} (${i + 1}/${loops})`;
+          }
+
+          await addExpense({
+            groupId: recurringGroupId,
+            description: desc,
+            amount: valuePerInstallment,
+            date: addMonths(date, i),
+            type: typeParam,
+            status: (i === 0) ? status : 'unpaid',
+            category
+          });
+        }
+      }
+
+      navigate('/');
+    } catch (error) {
+      console.error('Falha ao salvar lançamento:', error);
+      showAlert('Erro', 'Não foi possível salvar o lançamento. Tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -166,7 +193,7 @@ export default function ExpenseForm() {
           <div className="input-group">
             <label className="input-label">Descrição</label>
             <input 
-              type="text" 
+              type="text"
               placeholder="ex: Salário, Aluguel" 
               className="input-field" 
               value={description}
@@ -201,9 +228,9 @@ export default function ExpenseForm() {
                   Orçamento Mensal: <strong>R$ {budgetLimit.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>
                 </div>
                 <div style={{ color: 'var(--text-secondary)' }}>
-                  Já gasto: R$ {currentSpent.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                  Já comprometido (pago + a pagar): R$ {currentSpent.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                 </div>
-                {(currentSpent + (parseFloat(amount) || 0)) > budgetLimit && (
+                {(currentSpent + (parseBrazilianCurrency(amount) || 0)) > budgetLimit && (
                   <div style={{ color: 'var(--color-crimson-primary)', fontWeight: 'bold', marginTop: '8px', display: 'flex', gap: '6px' }}>
                     <span>⚠️</span> Ultrapassará o limite
                   </div>
@@ -213,12 +240,11 @@ export default function ExpenseForm() {
           </div>
 
           <div className="input-group">
-            <label className="input-label">Valor</label>
+            <label className="input-label">Valor (R$)</label>
             <input 
-              type="number" 
-              step="0.01"
-              min="0.01"
-              placeholder="R$"
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
               className="input-field" 
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -336,8 +362,8 @@ export default function ExpenseForm() {
             </div>
           )}
 
-          <button type="submit" className={isIncome ? 'btn-primary' : 'btn-danger'} style={{ width: '100%', marginTop: '16px' }}>
-            {isEditing ? 'Atualizar Lançamento' : 'Salvar'}
+          <button type="submit" disabled={isSaving} className={isIncome ? 'btn-primary' : 'btn-danger'} style={{ width: '100%', marginTop: '16px' }}>
+            {isSaving ? 'Salvando...' : isEditing ? 'Atualizar Lançamento' : 'Salvar'}
           </button>
         </form>
       </div>

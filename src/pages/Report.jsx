@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getUserProStatus, onAuthChange } from '../services/firebase';
+import { CalendarClock, ChevronLeft, ChevronRight, Lock, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
 import { getCategory } from '../utils/categories';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import {
@@ -9,6 +10,7 @@ import {
   getReportExpenses,
   summarizeReportExpenses,
 } from '../utils/reporting';
+import { getMonthlyInsights, shiftMonth } from '../utils/advancedReports';
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -99,14 +101,25 @@ function SummaryMetric({ label, value, color = 'var(--text-primary)' }) {
   );
 }
 
+function InsightMetric({ label, value, helper, color = 'var(--text-primary)' }) {
+  return (
+    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '12px' }}>
+      <p style={{ margin: '0 0 5px', color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: '600' }}>{label}</p>
+      <strong style={{ color, fontSize: '0.95rem' }}>{value}</strong>
+      {helper && <p style={{ margin: '5px 0 0', color: 'var(--text-tertiary)', fontSize: '0.7rem', lineHeight: 1.35 }}>{helper}</p>}
+    </div>
+  );
+}
+
 export default function Report() {
   const [allExpenses, setAllExpenses] = useState([]);
   const [loadError, setLoadError] = useState(false);
   const [filterMode, setFilterMode] = useState('all');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isExporting, setIsExporting] = useState(false);
+  const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
   const reportRefs = useRef([]);
-  const { showAlert, showConfirm } = useDialog();
+  const { showAlert, showConfirm, showProModal } = useDialog();
 
   useEffect(() => {
     let active = true;
@@ -131,11 +144,46 @@ export default function Report() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = onAuthChange(async (user) => {
+      if (!user) {
+        if (active) setIsPro(false);
+        return;
+      }
+
+      try {
+        const status = await getUserProStatus();
+        if (active) setIsPro(status.isPro);
+      } catch (error) {
+        console.warn('Não foi possível atualizar o plano no relatório:', error);
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
   const displayedExpenses = useMemo(() => getReportExpenses(allExpenses, {
     filterMode,
     currentDate,
   }), [allExpenses, filterMode, currentDate]);
   const summary = useMemo(() => summarizeReportExpenses(displayedExpenses), [displayedExpenses]);
+  const previousMonthDate = useMemo(() => shiftMonth(currentDate, -1), [currentDate]);
+  const previousMonthExpenses = useMemo(() => getReportExpenses(allExpenses, {
+    filterMode: 'month',
+    currentDate: previousMonthDate,
+  }), [allExpenses, previousMonthDate]);
+  const previousMonthSummary = useMemo(
+    () => summarizeReportExpenses(previousMonthExpenses),
+    [previousMonthExpenses],
+  );
+  const monthlyInsights = useMemo(
+    () => getMonthlyInsights(summary, previousMonthSummary),
+    [summary, previousMonthSummary],
+  );
   const categoryEntries = useMemo(() => Object.entries(summary.categoryTotals)
     .sort(([, amountA], [, amountB]) => amountB - amountA), [summary.categoryTotals]);
 
@@ -161,12 +209,23 @@ export default function Report() {
   const periodDescription = filterMode === 'all'
     ? 'O geral considera lançamentos com data até hoje. Projeções futuras aparecem no mês correspondente.'
     : 'Valores do mês selecionado, incluindo despesas a pagar e planejamentos.';
+  const selectedMonthLabel = `${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+  const previousMonthLabel = `${MONTH_NAMES[previousMonthDate.getMonth()]} ${previousMonthDate.getFullYear()}`;
+  const expenseComparison = monthlyInsights.expensesComparison;
+  const expenseComparisonColor = expenseComparison.direction === 'up'
+    ? 'var(--color-crimson-dark)'
+    : expenseComparison.direction === 'down'
+      ? 'var(--color-emerald-dark)'
+      : 'var(--text-primary)';
+  const expenseComparisonText = !expenseComparison.hasBaseline
+    ? `Ainda não há despesas em ${previousMonthLabel} para comparar.`
+    : expenseComparison.direction === 'stable'
+      ? `As despesas previstas ficaram iguais a ${previousMonthLabel}.`
+      : `${expenseComparison.direction === 'up' ? 'Acima' : 'Abaixo'} de ${previousMonthLabel} em ${formatMoney(Math.abs(expenseComparison.difference))} (${Math.abs(expenseComparison.percent).toFixed(1)}%).`;
 
   const changeMonth = (offset) => {
     if (isExporting) return;
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + offset);
-    setCurrentDate(newDate);
+    setCurrentDate((date) => shiftMonth(date, offset));
   };
 
   const handleExportPDF = async () => {
@@ -292,6 +351,68 @@ export default function Report() {
           {isExporting ? 'Gerando PDF...' : 'Exportar & Compartilhar'}
         </button>
       </section>
+
+      {filterMode === 'month' && (
+        <section className="glass-card" style={{ marginBottom: '24px', padding: '20px', border: isPro ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--glass-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+            <div>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)', fontSize: '1.05rem' }}>
+                <Sparkles size={19} color="var(--color-emerald-primary)" /> Insights avançados
+              </h2>
+              <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                Comparativo e previsão para {selectedMonthLabel}.
+              </p>
+            </div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 8px', borderRadius: '999px', background: isPro ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-secondary)', color: isPro ? 'var(--color-emerald-dark)' : 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: '700', whiteSpace: 'nowrap' }}>
+              {isPro ? <Sparkles size={13} /> : <Lock size={13} />} {isPro ? 'PRO' : 'RECURSO PRO'}
+            </span>
+          </div>
+
+          {isPro ? (
+            displayedExpenses.length > 0 ? (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '10px' }}>
+                  <InsightMetric
+                    label="PREVISÃO DE FECHAMENTO"
+                    value={formatSignedMoney(monthlyInsights.projectedBalance)}
+                    color={monthlyInsights.projectedBalance >= 0 ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)'}
+                    helper="Considera receitas, pagamentos, pendências e planejamentos."
+                  />
+                  <InsightMetric
+                    label="AINDA COMPROMETIDO"
+                    value={formatMoney(monthlyInsights.pendingAndPlanned)}
+                    color={monthlyInsights.pendingAndPlanned > 0 ? '#b45309' : 'var(--color-emerald-dark)'}
+                    helper="Despesas a pagar e planejadas."
+                  />
+                </div>
+
+                <div style={{ marginTop: '14px', borderRadius: '12px', background: 'var(--bg-secondary)', padding: '14px' }}>
+                  <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start' }}>
+                    {expenseComparison.direction === 'down'
+                      ? <TrendingDown size={19} color="var(--color-emerald-primary)" style={{ flexShrink: 0, marginTop: '1px' }} />
+                      : <TrendingUp size={19} color={expenseComparison.direction === 'up' ? 'var(--color-crimson-dark)' : 'var(--text-secondary)'} style={{ flexShrink: 0, marginTop: '1px' }} />}
+                    <div>
+                      <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.86rem', fontWeight: '700' }}>Comparativo de despesas previstas</p>
+                      <p style={{ margin: '4px 0 0', color: expenseComparisonColor, fontSize: '0.8rem', lineHeight: 1.45 }}>{expenseComparisonText}</p>
+                      <p style={{ margin: '5px 0 0', color: 'var(--text-tertiary)', fontSize: '0.72rem' }}>Em {selectedMonthLabel}: {formatMoney(monthlyInsights.expectedExpenses)}.</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '14px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
+                <CalendarClock size={20} color="var(--color-emerald-primary)" style={{ flexShrink: 0, marginTop: '1px' }} />
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5 }}>Adicione lançamentos em {selectedMonthLabel} para ver a previsão de fechamento e comparar com o mês anterior.</p>
+              </div>
+            )
+          ) : (
+            <div style={{ padding: '16px', borderRadius: '12px', background: 'var(--bg-secondary)' }}>
+              <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5 }}>Veja como suas despesas mudaram de um mês para outro e quanto deve sobrar no fechamento, considerando tudo o que já foi lançado.</p>
+              <button type="button" onClick={showProModal} className="btn-primary" style={{ width: '100%' }}>Desbloquear insights PRO</button>
+            </div>
+          )}
+        </section>
+      )}
 
       {loadError && (
         <div className="glass-card" role="alert" style={{ border: '1px solid rgba(244, 63, 94, 0.35)', marginBottom: '24px' }}>

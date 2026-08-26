@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Check, Star, Shield, Cloud, Zap, X } from 'lucide-react';
+import { useState } from 'react';
+import { BellRing, Cloud, Shield, Sparkles, Star, TrendingUp, X } from 'lucide-react';
 import { getIdToken } from '../services/firebase';
 
 export default function ProModal({ isOpen, onClose }) {
@@ -44,12 +44,12 @@ export default function ProModal({ isOpen, onClose }) {
       zIndex: 9999, padding: '24px'
     }}>
       <div className="glass-card" style={{
-        maxWidth: '400px', width: '100%',
+        maxWidth: '430px', width: '100%', maxHeight: '90vh', overflowY: 'auto',
         background: 'var(--bg-primary)',
-        position: 'relative', overflow: 'hidden',
+        position: 'relative', overflowX: 'hidden', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
         border: '1px solid var(--color-emerald-primary)'
       }}>
-        <button onClick={onClose} style={{
+        <button type="button" onClick={onClose} aria-label="Fechar planos" style={{
           position: 'absolute', top: '16px', right: '16px',
           background: 'none', border: 'none', color: 'var(--text-secondary)',
           cursor: 'pointer', padding: '4px', zIndex: 10
@@ -57,7 +57,7 @@ export default function ProModal({ isOpen, onClose }) {
           <X size={20} />
         </button>
 
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{
             width: '64px', height: '64px', borderRadius: '50%',
             background: 'rgba(16,185,129,0.1)', color: 'var(--color-emerald-primary)',
@@ -70,23 +70,53 @@ export default function ProModal({ isOpen, onClose }) {
             NaMão <span style={{ color: 'var(--color-emerald-primary)' }}>PRO</span>
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Desbloqueie o poder total do seu Agente Financeiro Inteligente.
+            Menos preocupação com planilhas. Mais clareza para decidir o que fazer com o seu dinheiro.
           </p>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '18px' }}>
+          <section style={{ padding: '14px', borderRadius: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)' }}>
+            <h3 style={{ margin: '0 0 4px', color: 'var(--text-primary)', fontSize: '0.95rem' }}>Gratuito</h3>
+            <p style={{ margin: '0 0 10px', color: 'var(--text-secondary)', fontSize: '0.72rem', lineHeight: 1.4 }}>Para organizar seu dia a dia.</p>
+            <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-secondary)', fontSize: '0.72rem', lineHeight: 1.6 }}>
+              <li>Lançamentos, metas e limites</li>
+              <li>Relatórios e PDF</li>
+              <li>5 mensagens com a IA por mês</li>
+              <li>Dados neste dispositivo</li>
+            </ul>
+          </section>
+
+          <section style={{ padding: '14px', borderRadius: '16px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.45)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--color-emerald-dark)', marginBottom: '4px' }}>
+              <Star size={15} fill="currentColor" /> <h3 style={{ margin: 0, fontSize: '0.95rem' }}>PRO</h3>
+            </div>
+            <p style={{ margin: '0 0 10px', color: 'var(--text-secondary)', fontSize: '0.72rem', lineHeight: 1.4 }}>Para planejar com segurança.</p>
+            <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-primary)', fontSize: '0.72rem', lineHeight: 1.6 }}>
+              <li>Tudo do Gratuito</li>
+              <li>IA sem limite mensal*</li>
+              <li>Comparativo e previsão mensal</li>
+              <li>Alertas de vencimento e orçamento</li>
+              <li>Backup automático na nuvem</li>
+              <li>Restaure em outro aparelho</li>
+            </ul>
+          </section>
+        </div>
+
+        <section style={{ padding: '14px', borderRadius: '16px', background: 'var(--bg-secondary)', marginBottom: '20px' }}>
+          <p style={{ margin: '0 0 10px', color: 'var(--text-primary)', fontWeight: '700', fontSize: '0.9rem' }}>Com PRO, você ganha:</p>
           {[
-            { icon: Zap, text: 'Conversas ilimitadas com a IA' },
-            { icon: Cloud, text: 'Backup em nuvem automático' },
-            { icon: Shield, text: 'Selo PRO exclusivo no perfil' },
-            { icon: Check, text: 'Acesso antecipado a novas funções' }
-          ].map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}>
-              <div style={{ color: 'var(--color-emerald-primary)' }}><item.icon size={20} /></div>
-              <span style={{ fontSize: '0.95rem', fontWeight: '500' }}>{item.text}</span>
+            { icon: Sparkles, text: 'Mais conversas com a NaMão IA para analisar e planejar suas finanças.' },
+            { icon: TrendingUp, text: 'Comparativo mês a mês e previsão de fechamento para antecipar decisões.' },
+            { icon: BellRing, text: 'Avisos de vencimentos e limites de orçamento ao abrir o app, se ativados no navegador.' },
+            { icon: Cloud, text: 'Uma cópia automática de lançamentos, metas, limites e conversas.' },
+            { icon: Shield, text: 'Tranquilidade para trocar de aparelho sem perder sua organização.' },
+          ].map((item) => (
+            <div key={item.text} style={{ display: 'flex', alignItems: 'flex-start', gap: '9px', color: 'var(--text-primary)', marginTop: '9px' }}>
+              <item.icon size={18} color="var(--color-emerald-primary)" style={{ flexShrink: 0, marginTop: '1px' }} />
+              <span style={{ fontSize: '0.8rem', lineHeight: 1.4 }}>{item.text}</span>
             </div>
           ))}
-        </div>
+        </section>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <button 
@@ -103,8 +133,8 @@ export default function ProModal({ isOpen, onClose }) {
               position: 'absolute', top: 0, right: 0, background: '#FFD700', color: '#000',
               fontSize: '0.65rem', padding: '2px 8px', borderBottomLeftRadius: '8px', fontWeight: '800'
             }}>MAIS POPULAR</div>
-            {loading ? 'Aguarde...' : 'Plano Anual - R$ 89,00'}
-            <div style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.9, marginTop: '2px' }}>Apenas R$ 7,41 por mês</div>
+            {loading ? 'Aguarde...' : 'Escolher plano anual — R$ 89,00'}
+            <div style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.9, marginTop: '2px' }}>365 dias · R$ 7,42 por mês · economize R$ 29,80</div>
           </button>
           
           <button 
@@ -117,15 +147,18 @@ export default function ProModal({ isOpen, onClose }) {
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            {loading ? 'Aguarde...' : 'Plano Mensal - R$ 9,90'}
+            {loading ? 'Aguarde...' : 'Plano mensal — R$ 9,90 por 30 dias'}
           </button>
         </div>
 
         <div style={{ textAlign: 'center', marginTop: '16px' }}>
           <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-            Pagamento seguro processado pelo Mercado Pago. Cancele quando quiser.
+            Pagamento avulso processado pelo Mercado Pago. O acesso mensal dura 30 dias e o anual, 365 dias. *Uso responsável da IA.
           </span>
         </div>
+        <button type="button" onClick={onClose} style={{ width: '100%', marginTop: '12px', padding: '10px', background: 'transparent', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+          Continuar no plano gratuito
+        </button>
       </div>
     </div>
   );

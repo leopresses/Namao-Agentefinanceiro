@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getExpenses } from '../services/db';
 import { getCategory } from '../utils/categories';
 import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
 import { getIdToken, getUserProStatus, onAuthChange } from '../services/firebase';
-import { MessageSquarePlus, History, Trash2, ChevronLeft, X, Sparkles } from 'lucide-react';
+import { MessageSquarePlus, History, Trash2, X, Sparkles } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 
 export default function ChatAI() {
@@ -35,6 +35,19 @@ export default function ChatAI() {
     return () => unsubscribe();
   }, []);
 
+  const refreshChatList = useCallback(() => {
+    setChatList(getChatList());
+  }, []);
+
+  const startNewChat = useCallback(() => {
+    const chat = createChat();
+    setActiveChatIdState(chat.id);
+    setMessages(chat.messages);
+    setActiveChatId(chat.id);
+    refreshChatList();
+    setShowHistory(false);
+  }, [refreshChatList]);
+
   // Carregar ou criar chat ativo ao montar
   useEffect(() => {
     const savedId = getActiveChatId();
@@ -50,20 +63,7 @@ export default function ChatAI() {
       startNewChat();
     }
     refreshChatList();
-  }, []);
-
-  const refreshChatList = () => {
-    setChatList(getChatList());
-  };
-
-  const startNewChat = () => {
-    const chat = createChat();
-    setActiveChatIdState(chat.id);
-    setMessages(chat.messages);
-    setActiveChatId(chat.id);
-    refreshChatList();
-    setShowHistory(false);
-  };
+  }, [startNewChat, refreshChatList]);
 
   const switchToChat = (chatId) => {
     const chat = getChatById(chatId);
@@ -161,7 +161,7 @@ export default function ChatAI() {
       try {
         const token = await getIdToken();
         authHeader = { 'Authorization': `Bearer ${token}` };
-      } catch (e) {
+      } catch {
         // Usuário não autenticado via Google, continuar sem token
       }
 

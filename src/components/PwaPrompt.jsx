@@ -1,46 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, Share, PlusSquare, X } from 'lucide-react';
 
 export default function PwaPrompt() {
   const [isOpen, setIsOpen] = useState(false);
-  const [deviceType, setDeviceType] = useState('unknown'); // 'ios' | 'android' | 'desktop'
+  const [deviceType] = useState(() => {
+    const ua = navigator.userAgent;
+    if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return 'ios';
+    return /android/i.test(ua) ? 'android' : 'desktop';
+  });
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
-    // Detecta o dispositivo
-    const ua = navigator.userAgent;
-    if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
-      setDeviceType('ios');
-    } else if (/android/i.test(ua)) {
-      setDeviceType('android');
-    } else {
-      setDeviceType('desktop');
-    }
-
     // Verifica se já viu o prompt recentemente (não incomodar)
     const hasDismissed = sessionStorage.getItem('namao_pwa_dismissed');
-    
-    // Para Android/Desktop (Captura o evento nativo de PWA)
-    window.addEventListener('beforeinstallprompt', (e) => {
+
+    const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
       if (!hasDismissed) {
         setIsOpen(true);
       }
-    });
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     // Para iOS (Se estiver rodando no navegador e não como PWA instalado)
     const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    let timerId;
     if (deviceType === 'ios' && !isStandalone && !hasDismissed) {
       // Pequeno delay para não assustar no primeiro load
-      setTimeout(() => setIsOpen(true), 3000);
+      timerId = window.setTimeout(() => setIsOpen(true), 3000);
     }
 
     // Listener para o botão de Configurações ativar manualmente
     const handleManualTrigger = () => setIsOpen(true);
     window.addEventListener('trigger-pwa-prompt', handleManualTrigger);
 
-    return () => window.removeEventListener('trigger-pwa-prompt', handleManualTrigger);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('trigger-pwa-prompt', handleManualTrigger);
+      if (timerId) window.clearTimeout(timerId);
+    };
   }, [deviceType]);
 
   const handleClose = () => {
@@ -101,9 +100,16 @@ export default function PwaPrompt() {
           2. Role e toque em <strong>"Adicionar à Tela de Início"</strong> <PlusSquare size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
         </div>
       ) : (
-        <button onClick={handleInstallClick} className="btn-primary" style={{ width: '100%', padding: '12px' }}>
-          <Download size={18} /> Adicionar à Tela Inicial
-        </button>
+        <>
+          <button onClick={handleInstallClick} className="btn-primary" style={{ width: '100%', padding: '12px' }} disabled={!deferredPrompt}>
+            <Download size={18} /> Adicionar à Tela Inicial
+          </button>
+          {!deferredPrompt && (
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'center' }}>
+              A instalação ainda não está disponível neste navegador. Abra o app no Chrome ou Safari atualizado.
+            </p>
+          )}
+        </>
       )}
     </div>
   );

@@ -1,15 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-import ExpenseForm from './pages/ExpenseForm';
-import ExpenseDetails from './pages/ExpenseDetails';
-import Profile from './pages/Profile';
-import ChatAI from './pages/ChatAI';
-import Report from './pages/Report';
-import Budgets from './pages/Budgets';
-import Goals from './pages/Goals';
-import GoalForm from './pages/GoalForm';
 import BottomNav from './components/BottomNav';
 import HelpModal from './components/HelpModal';
 import PwaPrompt from './components/PwaPrompt';
@@ -19,7 +10,23 @@ import { DialogProvider } from './contexts/DialogContext';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useAutoSync } from './hooks/useAutoSync';
 import { onAuthChange } from './services/firebase';
-import { Wifi, WifiOff, RefreshCw, Check } from 'lucide-react';
+import { WifiOff, RefreshCw } from 'lucide-react';
+import { applyTheme, getStoredTheme } from './utils/theme';
+import { IS_LOCAL_TEST_MODE } from './config/environment';
+
+// Relatórios carrega bibliotecas grandes (PDF e gráficos). As telas são
+// carregadas sob demanda para a primeira abertura ficar leve no celular.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const ExpenseForm = lazy(() => import('./pages/ExpenseForm'));
+const ExpenseDetails = lazy(() => import('./pages/ExpenseDetails'));
+const Profile = lazy(() => import('./pages/Profile'));
+const ChatAI = lazy(() => import('./pages/ChatAI'));
+const Report = lazy(() => import('./pages/Report'));
+const Budgets = lazy(() => import('./pages/Budgets'));
+const Goals = lazy(() => import('./pages/Goals'));
+const GoalForm = lazy(() => import('./pages/GoalForm'));
+const Help = lazy(() => import('./pages/Help'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
 function SyncStatusBadge() {
   const { isOnline, syncStatus } = useAutoSync();
@@ -57,11 +64,24 @@ function SyncStatusBadge() {
 }
 
 function RequireAuth({ children }) {
-  const token = localStorage.getItem('namao_auth_token');
   const location = useLocation();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [user, setUser] = useState(null);
 
-  // Se não tem token de autenticação local, redireciona para o login
-  if (!token) {
+  useEffect(() => onAuthChange((currentUser) => {
+    setUser(currentUser);
+    setIsCheckingAuth(false);
+  }), []);
+
+  if (IS_LOCAL_TEST_MODE && localStorage.getItem('namao_local_test_user') === 'true') {
+    return children;
+  }
+
+  if (isCheckingAuth) {
+    return <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>Verificando acesso...</div>;
+  }
+
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -70,17 +90,21 @@ function RequireAuth({ children }) {
 
 function App() {
   const location = useLocation();
-  const hideNav = location.pathname === '/login';
+  const isPublicPage = ['/login', '/help', '/privacy'].includes(location.pathname);
+  const isWidePublicPage = ['/help', '/privacy'].includes(location.pathname);
+  const hideNav = isPublicPage;
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('namao_theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    applyTheme(getStoredTheme());
   }, []);
 
   const content = (
-    <Routes>
+    <Suspense fallback={<div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>Carregando...</div>}>
+      <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/help" element={<Help />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       
       {/* Protected Routes */}
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
@@ -95,7 +119,8 @@ function App() {
       <Route path="/goal/:id" element={<RequireAuth><GoalForm /></RequireAuth>} />
       
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 
   return (
@@ -107,6 +132,10 @@ function App() {
           <div className="desktop-content">
             {content}
           </div>
+        </div>
+      ) : isDesktop && isWidePublicPage ? (
+        <div className="public-desktop-layout">
+          {content}
         </div>
       ) : (
         <div className="mobile-layout">

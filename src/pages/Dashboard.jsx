@@ -1,13 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { getCategory } from '../utils/categories';
 import { getUserProStatus, onAuthChange } from '../services/firebase';
 import { useDialog } from '../contexts/DialogContext';
+import { getGoalProgress } from '../utils/goals';
+import {
+  buildFinancialAlert,
+  getBrowserNotificationPermission,
+  getProNotificationsEnabled,
+} from '../utils/proNotifications';
+import { shiftMonth } from '../utils/advancedReports';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [allExpenses, setAllExpenses] = useState([]);
   const [displayedExpenses, setDisplayedExpenses] = useState([]);
   const [balance, setBalance] = useState(0);
@@ -16,7 +24,8 @@ export default function Dashboard() {
   const [categoryTotals, setCategoryTotals] = useState({});
   const [goals, setGoals] = useState([]);
   const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
-  const { showProModal } = useDialog();
+  const handledPaymentResult = useRef(null);
+  const { showAlert, showProModal } = useDialog();
   
   // Date tracking for Month Filter
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -34,14 +43,72 @@ export default function Dashboard() {
     }
     loadData();
 
+    window.addEventListener('namao_data_changed', loadData);
+
     const unsubscribe = onAuthChange(async (user) => {
       if (user) {
         const proData = await getUserProStatus();
         setIsPro(proData.isPro);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      window.removeEventListener('namao_data_changed', loadData);
+      unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    const paymentResult = new URLSearchParams(location.search).get('payment');
+    if (!paymentResult) return undefined;
+    const paymentKey = `${paymentResult}:${location.search}`;
+    if (handledPaymentResult.current === paymentKey) return undefined;
+    handledPaymentResult.current = paymentKey;
+
+    const params = new URLSearchParams(location.search);
+    params.delete('payment');
+    const cleanSearch = params.toString();
+    window.history.replaceState(null, '', `${location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`);
+
+    let cancelled = false;
+    const notifyPaymentResult = async () => {
+      if (paymentResult === 'failure') {
+        showAlert('Pagamento não concluído', 'Nenhuma cobrança foi confirmada. Você pode tentar novamente quando quiser.');
+        return;
+      }
+      if (paymentResult === 'pending') {
+        showAlert('Pagamento pendente', 'Assim que o Mercado Pago aprovar o pagamento, seu acesso PRO será liberado automaticamente.');
+        return;
+      }
+      if (paymentResult !== 'success') return;
+
+      // O retorno do Mercado Pago pode chegar alguns segundos antes do webhook.
+      // Consultamos novamente por pouco tempo para que o usuário não precise
+      // atualizar a página manualmente após pagar.
+      let proData = { isPro: false };
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          proData = await getUserProStatus();
+        } catch (error) {
+          console.warn('Falha ao atualizar assinatura após pagamento:', error);
+        }
+        if (proData.isPro || attempt === 3) break;
+        await new Promise((resolve) => window.setTimeout(resolve, 1500));
+      }
+
+      if (cancelled) return;
+      setIsPro(proData.isPro);
+      if (proData.isPro) {
+        showAlert('Pagamento aprovado!', 'Seu NaMão PRO já está ativo. Aproveite todos os recursos.');
+      } else {
+        showAlert('Pagamento recebido', 'Estamos confirmando o pagamento. Seu acesso PRO será liberado automaticamente em instantes.');
+      }
+    };
+
+    notifyPaymentResult();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.search, navigate, showAlert]);
 
   useEffect(() => {
     // Filter data by currently selected month and year
@@ -81,24 +148,74 @@ export default function Dashboard() {
   }, [allExpenses, currentDate]);
 
   const changeMonth = (offset) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + offset);
-    setCurrentDate(newDate);
+    setCurrentDate((date) => shiftMonth(date, offset));
   };
 
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+  const formatLocalDate = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const todayStr = today.toISOString().split('T')[0];
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(today);
+  const tomorrowStr = formatLocalDate(tomorrow);
 
   const urgentItems = allExpenses.filter(item => 
     item.type === 'expense' && 
     (item.status === 'unpaid' || item.status === 'planned') && 
     (item.date === todayStr || item.date === tomorrowStr)
   );
+
+  const budgetAlerts = useMemo(() => Object.entries(budgets)
+    .filter(([, limit]) => Number(limit) > 0)
+    .map(([categoryId, limit]) => ({
+      categoryId,
+      percent: ((Number(categoryTotals[categoryId]) || 0) / Number(limit)) * 100,
+    }))
+    .filter((alert) => alert.percent >= 80), [budgets, categoryTotals]);
+
+  useEffect(() => {
+    const now = new Date();
+    const isCurrentMonth = currentDate.getMonth() === now.getMonth()
+      && currentDate.getFullYear() === now.getFullYear();
+    if (!isPro || !isCurrentMonth || !getProNotificationsEnabled()) return;
+    if (getBrowserNotificationPermission() !== 'granted') return;
+
+    // Os dados de orçamento e lançamentos chegam em operações separadas.
+    // Atrasar um instante evita duas notificações enquanto a tela termina de
+    // calcular os totais do mês.
+    const timeoutId = window.setTimeout(() => {
+      const alert = buildFinancialAlert({
+        urgentItems,
+        budgetAlerts,
+        today: todayStr,
+        tomorrow: tomorrowStr,
+      });
+      if (!alert) return;
+
+      const storageKey = 'namao_last_pro_financial_alert';
+      if (localStorage.getItem(storageKey) === alert.signature) return;
+
+      try {
+        new window.Notification(alert.title, {
+          body: alert.body,
+          icon: '/logo.png',
+          tag: 'namao-financial-alerts',
+        });
+        localStorage.setItem(storageKey, alert.signature);
+      } catch (error) {
+        console.warn('Não foi possível exibir o alerta do navegador:', error);
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [budgetAlerts, currentDate, isPro, todayStr, tomorrowStr, urgentItems]);
 
   return (
     <div className="animate-fade-up">
@@ -197,7 +314,7 @@ export default function Dashboard() {
       </div>
 
       {/* Progresso dos Orçamentos */}
-      {Object.entries(budgets).filter(([_, limit]) => limit > 0).length > 0 && (
+      {Object.entries(budgets).filter(([, limit]) => limit > 0).length > 0 && (
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h3 style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Orçamentos do Mês</h3>
@@ -205,7 +322,7 @@ export default function Dashboard() {
           </div>
           <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {Object.entries(budgets)
-              .filter(([_, limit]) => limit > 0)
+              .filter(([, limit]) => limit > 0)
               .map(([catId, limit]) => {
 
               const spent = categoryTotals[catId] || 0;
@@ -248,8 +365,7 @@ export default function Dashboard() {
           
           <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '8px', scrollSnapType: 'x mandatory' }} className="hide-scrollbar">
             {goals.map(goal => {
-              const percent = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
-              const isCompleted = percent >= 100;
+              const { currentAmount, percent, hasValidTarget, isCompleted } = getGoalProgress(goal);
               
               return (
                 <div 
@@ -267,10 +383,10 @@ export default function Dashboard() {
                   
                   <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isCompleted ? 'var(--color-emerald-primary)' : 'var(--text-primary)' }}>
-                      R$ {goal.currentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {currentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                     <span style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem', fontWeight: '600' }}>
-                      {percent.toFixed(0)}%
+                      {hasValidTarget ? `${percent.toFixed(0)}%` : '—'}
                     </span>
                   </div>
                   

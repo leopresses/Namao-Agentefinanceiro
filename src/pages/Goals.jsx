@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getGoals } from '../services/db';
 import { Target, Plus } from 'lucide-react';
+import { formatGoalDeadline, getGoalProgress } from '../utils/goals';
 
 export default function Goals() {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ export default function Goals() {
       setGoals(data);
     }
     load();
+
+    window.addEventListener('namao_data_changed', load);
+    return () => window.removeEventListener('namao_data_changed', load);
   }, []);
 
   return (
@@ -53,8 +57,7 @@ export default function Goals() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {goals.map(goal => {
-            const percent = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
-            const isCompleted = percent >= 100;
+            const { currentAmount, targetAmount, percent, hasValidTarget, isCompleted } = getGoalProgress(goal);
             
             return (
               <div 
@@ -74,7 +77,7 @@ export default function Goals() {
                     <h3 style={{ margin: '0 0 4px 0', color: 'var(--text-primary)', fontSize: '1rem' }}>{goal.title}</h3>
                     {goal.deadline && (
                       <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                        Para: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
+                        Para: {formatGoalDeadline(goal.deadline)}
                       </p>
                     )}
                   </div>
@@ -83,14 +86,14 @@ export default function Goals() {
                 <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                   <div>
                     <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isCompleted ? 'var(--color-emerald-primary)' : 'var(--text-primary)' }}>
-                      R$ {goal.currentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {currentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      {' '}de R$ {goal.targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {hasValidTarget ? ` de R$ ${targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ' — revise o objetivo'}
                     </span>
                   </div>
                   <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', fontWeight: '600' }}>
-                    {percent.toFixed(0)}%
+                    {hasValidTarget ? `${percent.toFixed(0)}%` : '—'}
                   </span>
                 </div>
 

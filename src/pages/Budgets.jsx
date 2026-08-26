@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getBudgets, saveBudget } from '../services/db';
 import { CATEGORIES } from '../utils/categories';
 import { useDialog } from '../contexts/DialogContext';
+import { parseBrazilianCurrency } from '../utils/currency';
 
 export default function Budgets() {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ export default function Budgets() {
       setBudgets(data);
     }
     load();
+
+    window.addEventListener('namao_data_changed', load);
+    return () => window.removeEventListener('namao_data_changed', load);
   }, []);
 
   const handleSetLimit = async (categoryId, catLabel) => {
@@ -23,19 +27,25 @@ export default function Budgets() {
     
     if (newLimit === null) return; // cancelou
 
-    const numValue = parseFloat(newLimit.toString().replace(',', '.'));
+    const numValue = parseBrazilianCurrency(newLimit);
     
-    if (newLimit.toString().trim() === '' || isNaN(numValue) || numValue <= 0) {
-      // Remove o limite
-      const updated = { ...budgets };
-      delete updated[categoryId];
-      await saveBudget(categoryId, null);
-      setBudgets(updated);
-      showAlert('Sucesso', `Limite de ${catLabel} removido.`);
-    } else {
-      await saveBudget(categoryId, numValue);
-      setBudgets({ ...budgets, [categoryId]: numValue });
-      showAlert('Sucesso', `Limite de ${catLabel} definido para R$ ${numValue.toFixed(2).replace('.', ',')}.`);
+    try {
+      if (newLimit.toString().trim() === '' || numValue === 0) {
+        const updated = { ...budgets };
+        delete updated[categoryId];
+        await saveBudget(categoryId, null);
+        setBudgets(updated);
+        showAlert('Sucesso', `Limite de ${catLabel} removido.`);
+      } else if (numValue !== null && numValue > 0) {
+        await saveBudget(categoryId, numValue);
+        setBudgets({ ...budgets, [categoryId]: numValue });
+        showAlert('Sucesso', `Limite de ${catLabel} definido para R$ ${numValue.toFixed(2).replace('.', ',')}.`);
+      } else {
+        showAlert('Atenção', 'Informe um limite válido maior que zero ou deixe em branco para remover.');
+      }
+    } catch (error) {
+      console.error('Não foi possível salvar o limite de orçamento:', error);
+      showAlert('Erro', 'Não foi possível salvar esse limite agora. Tente novamente.');
     }
   };
 
@@ -49,7 +59,7 @@ export default function Budgets() {
       </header>
 
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '16px', textAlign: 'center' }}>
-        Defina um teto máximo de gastos por mês para cada categoria. Nós te avisaremos se você ultrapassar.
+        Defina um teto mensal para cada categoria. Acompanhe os valores comprometidos no painel e no momento de lançar uma despesa.
       </p>
 
       <div className="glass-card" style={{ padding: '0' }}>

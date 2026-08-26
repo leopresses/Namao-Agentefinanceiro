@@ -7,10 +7,13 @@
   
   --text-primary: #1E293B;
   --text-secondary: #64748B;
+  --text-tertiary: #94A3B8;
   --text-inverse: #FFFFFF;
   
   --color-emerald-primary: #10B981;
   --color-emerald-dark: #059669;
+  --color-emerald-light: #34D399;
+  --color-brand-primary: #10B981;
   
   --color-crimson-primary: #F43F5E;
   --color-crimson-dark: #E11D48;
@@ -26,10 +29,13 @@
   
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
+  --text-tertiary: #64748B;
   --text-inverse: #0F172A;
   
   --color-emerald-primary: #10B981;
   --color-emerald-dark: #34D399;
+  --color-emerald-light: #6EE7B7;
+  --color-brand-primary: #10B981;
   
   --color-crimson-primary: #F43F5E;
   --color-crimson-dark: #FB7185;
@@ -118,6 +124,13 @@ body {
   margin: 0 auto;
   padding: 40px 24px;
   position: relative;
+}
+
+.public-desktop-layout {
+  width: min(100%, 760px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 40px 24px;
 }
 
 .sidebar-link {

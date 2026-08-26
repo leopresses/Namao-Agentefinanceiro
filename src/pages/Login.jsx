@@ -1,33 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { loginWithGooglePopup, loginWithGoogleRedirect, checkGoogleLoginResult, onAuthChange } from '../services/firebase';
+import { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { loginWithGooglePopup, loginWithGoogleRedirect, checkGoogleLoginResult, onAuthChange, refreshServerAccountStatus } from '../services/firebase';
+import { IS_LOCAL_TEST_MODE } from '../config/environment';
 
 export default function Login() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Redireciona automaticamente se o usuário já tem sessão local ativa
-  useEffect(() => {
-    const token = localStorage.getItem('namao_auth_token');
-    if (token) {
-      navigate('/', { replace: true });
+  const saveSessionAndNavigate = useCallback(async (user) => {
+    try {
+      await refreshServerAccountStatus();
+    } catch (err) {
+      console.warn('Não foi possível atualizar a assinatura agora:', err);
     }
+    localStorage.setItem('namao_auth_token', 'google');
+    localStorage.setItem('namao_user_uid', user.uid);
+    localStorage.setItem('namao_user_name', user.displayName || '');
+    localStorage.setItem('namao_user_photo', user.photoURL || '');
+    navigate('/', { replace: true });
   }, [navigate]);
 
   // Observa se o Firebase já restaurou a sessão do usuário
   useEffect(() => {
     const unsubscribe = onAuthChange((user) => {
       if (user) {
-        localStorage.setItem('namao_auth_token', 'google');
-        localStorage.setItem('namao_user_uid', user.uid);
-        localStorage.setItem('namao_user_name', user.displayName || '');
-        localStorage.setItem('namao_user_photo', user.photoURL || '');
-        navigate('/', { replace: true });
+        saveSessionAndNavigate(user);
       }
     });
     return unsubscribe;
-  }, [navigate]);
+  }, [saveSessionAndNavigate]);
 
   // Checa se o usuário acabou de voltar de um redirecionamento do Google (mobile)
   useEffect(() => {
@@ -36,11 +38,7 @@ export default function Login() {
         setIsLoading(true);
         const user = await checkGoogleLoginResult();
         if (user) {
-          localStorage.setItem('namao_auth_token', 'google');
-          localStorage.setItem('namao_user_uid', user.uid);
-          localStorage.setItem('namao_user_name', user.displayName || '');
-          localStorage.setItem('namao_user_photo', user.photoURL || '');
-          navigate('/', { replace: true });
+          await saveSessionAndNavigate(user);
         }
       } catch (err) {
         console.error('Firebase Redirect Error:', err);
@@ -50,20 +48,23 @@ export default function Login() {
       }
     }
     handleRedirect();
-  }, [navigate]);
+  }, [saveSessionAndNavigate]);
 
   const handleGoogleLogin = async () => {
     setError('');
     setIsLoading(true);
     
     try {
+      // O navegador integrado pode isolar janelas pop-up. No modo de teste,
+      // usamos a própria aba para que o seletor de contas do Google funcione.
+      if (IS_LOCAL_TEST_MODE) {
+        await loginWithGoogleRedirect();
+        return;
+      }
+
       // Usamos SEMPRE Popup porque o Redirect tem um bug crônico no Firebase com navegadores mobile modernos (Safari/Chrome bloqueiam cookies de terceiros cross-domain, fazendo o redirect retornar null).
       const user = await loginWithGooglePopup();
-      localStorage.setItem('namao_auth_token', 'google');
-      localStorage.setItem('namao_user_uid', user.uid);
-      localStorage.setItem('namao_user_name', user.displayName || '');
-      localStorage.setItem('namao_user_photo', user.photoURL || '');
-      navigate('/');
+      await saveSessionAndNavigate(user);
     } catch (err) {
       console.error('Firebase Auth Error:', err);
       const code = err?.code || '';
@@ -72,7 +73,13 @@ export default function Login() {
       if (code === 'auth/popup-closed-by-user') {
         msg = 'Você fechou a janela de login antes de finalizar.';
       } else if (code === 'auth/popup-blocked') {
-        msg = '⚠️ ALERTA: Seu navegador bloqueou a janela do Google! Se você está abrindo pelo Instagram/Facebook, clique nos 3 pontinhos no canto superior e escolha "Abrir no Navegador" (Safari/Chrome).';
+        try {
+          await loginWithGoogleRedirect();
+          return;
+        } catch (redirectError) {
+          console.error('Firebase Redirect Error:', redirectError);
+          msg = 'Seu navegador bloqueou a janela de login. Abra o app no Safari ou Chrome e tente novamente.';
+        }
       } else if (code === 'auth/unauthorized-domain') {
         msg = 'Este domínio não está autorizado no Firebase. Adicione o domínio na aba Authentication > Settings.';
       } else if (code === 'auth/configuration-not-found') {
@@ -84,6 +91,14 @@ export default function Login() {
       setError(msg);
       setIsLoading(false);
     }
+  };
+
+  const handleLocalTestLogin = () => {
+    localStorage.setItem('namao_local_test_user', 'true');
+    localStorage.setItem('namao_auth_token', 'local-test');
+    localStorage.setItem('namao_user_name', 'Usuário de teste');
+    localStorage.removeItem('namao_user_photo');
+    navigate('/', { replace: true });
   };
 
   return (
@@ -124,9 +139,34 @@ export default function Login() {
           <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           {isLoading ? 'Conectando...' : 'Entrar com Google'}
         </button>
+
+        {IS_LOCAL_TEST_MODE && (
+          <button
+            type="button"
+            onClick={handleLocalTestLogin}
+            disabled={isLoading}
+            style={{
+              width: '100%', marginTop: '12px', padding: '14px 20px', borderRadius: '16px',
+              background: 'transparent', color: 'var(--color-emerald-dark)',
+              border: '1px solid rgba(16, 185, 129, 0.35)', fontSize: '0.9rem',
+              cursor: isLoading ? 'wait' : 'pointer'
+            }}
+          >
+            Entrar como usuário de teste
+          </button>
+        )}
+
+        {IS_LOCAL_TEST_MODE && (
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '12px', lineHeight: 1.45 }}>
+            Esta conta existe apenas neste navegador local e não envia dados para a nuvem.
+          </p>
+        )}
         
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '24px', lineHeight: '1.5' }}>
-          Use o Google para sincronizar seus dados em tempo real e nunca perder nenhum lançamento.
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: IS_LOCAL_TEST_MODE ? '16px' : '24px', lineHeight: '1.5' }}>
+          Serviço destinado a pessoas com 18 anos ou mais. Ao continuar, você confirma que leu a{' '}
+          <Link to="/privacy" style={{ color: 'var(--color-emerald-dark)', fontWeight: '700' }}>Política de Privacidade</Link>{' '}
+          e a{' '}
+          <Link to="/help" style={{ color: 'var(--color-emerald-dark)', fontWeight: '700' }}>Central de Ajuda</Link>.
         </p>
       </div>
     </div>

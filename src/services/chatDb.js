@@ -9,6 +9,10 @@ function getAll() {
 
 function saveAll(chats) {
   localStorage.setItem(CHATS_KEY, JSON.stringify(chats));
+  // As conversas fazem parte do backup PRO. Avise o sincronizador sempre
+  // que o histórico mudar para evitar que mensagens recentes fiquem só
+  // neste dispositivo.
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export function getAllChats() {
@@ -87,4 +91,5 @@ export function deleteChat(chatId) {
 export function clearAllChats() {
   localStorage.removeItem(CHATS_KEY);
   localStorage.removeItem(ACTIVE_CHAT_KEY);
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
