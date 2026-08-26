@@ -1,163 +1,240 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getExpenses } from '../services/db';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { useDialog } from '../contexts/DialogContext';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCategory } from '../utils/categories';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  formatLocalFileDate,
+  getReportExpenses,
+  summarizeReportExpenses,
+} from '../utils/reporting';
+
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+const CHART_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F43F5E', '#64748B'];
+
+function formatMoney(value) {
+  return `R$ ${Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatSignedMoney(value) {
+  return `${value < 0 ? '- ' : ''}${formatMoney(Math.abs(value))}`;
+}
+
+function getStatusInfo(expense) {
+  if (expense.type === 'income') {
+    return { label: 'Recebida', background: 'rgba(16, 185, 129, 0.1)', color: '#059669' };
+  }
+  if (expense.status === 'paid') {
+    return { label: 'Pago', background: 'rgba(16, 185, 129, 0.1)', color: '#059669' };
+  }
+  if (expense.status === 'planned') {
+    return { label: 'Planejado', background: 'rgba(245, 158, 11, 0.1)', color: '#b45309' };
+  }
+  return { label: 'A pagar', background: 'rgba(244, 63, 94, 0.1)', color: '#E11D48' };
+}
+
+/**
+ * Converte um bloco do relatório em tantas páginas A4 quanto forem
+ * necessárias. Sem isso, uma imagem maior que A4 era cortada no rodapé.
+ */
+function addCanvasToPdf(pdf, sourceCanvas, hasContent) {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 10;
+  const printableWidth = pageWidth - (margin * 2);
+  const printableHeight = pageHeight - (margin * 2);
+  const pixelsPerMillimeter = sourceCanvas.width / printableWidth;
+  const maxSliceHeight = Math.max(1, Math.floor(printableHeight * pixelsPerMillimeter));
+  let offsetY = 0;
+  let shouldAddPage = hasContent;
+
+  while (offsetY < sourceCanvas.height) {
+    const sliceHeight = Math.min(maxSliceHeight, sourceCanvas.height - offsetY);
+    const slice = document.createElement('canvas');
+    slice.width = sourceCanvas.width;
+    slice.height = sliceHeight;
+    const context = slice.getContext('2d');
+    context.drawImage(
+      sourceCanvas,
+      0,
+      offsetY,
+      sourceCanvas.width,
+      sliceHeight,
+      0,
+      0,
+      sourceCanvas.width,
+      sliceHeight,
+    );
+
+    if (shouldAddPage) pdf.addPage();
+    pdf.addImage(
+      slice.toDataURL('image/png'),
+      'PNG',
+      margin,
+      margin,
+      printableWidth,
+      sliceHeight / pixelsPerMillimeter,
+    );
+
+    shouldAddPage = true;
+    offsetY += sliceHeight;
+  }
+
+  return shouldAddPage;
+}
+
+function SummaryMetric({ label, value, color = 'var(--text-primary)' }) {
+  return (
+    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '12px' }}>
+      <p style={{ margin: '0 0 5px', color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: '600' }}>{label}</p>
+      <strong style={{ color, fontSize: '0.95rem' }}>{formatMoney(value)}</strong>
+    </div>
+  );
+}
 
 export default function Report() {
   const [allExpenses, setAllExpenses] = useState([]);
-  const [displayedExpenses, setDisplayedExpenses] = useState([]);
-  const [balance, setBalance] = useState(0);
-  const [toPay, setToPay] = useState(0);
-  const [categoryTotals, setCategoryTotals] = useState({});
-  const [totalExpenseAmount, setTotalExpenseAmount] = useState(0);
-  
-  // Controle de Mês ('all' ou data)
-  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'month'
+  const [loadError, setLoadError] = useState(false);
+  const [filterMode, setFilterMode] = useState('all');
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  const reportRefs = useRef([]);
   const [isExporting, setIsExporting] = useState(false);
+  const reportRefs = useRef([]);
   const { showAlert, showConfirm } = useDialog();
 
   useEffect(() => {
+    let active = true;
+
     async function loadData() {
-      const data = await getExpenses();
-      data.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setAllExpenses(data);
+      try {
+        const data = await getExpenses();
+        if (!active) return;
+        setAllExpenses(Array.isArray(data) ? data : []);
+        setLoadError(false);
+      } catch (error) {
+        console.error('Falha ao carregar relatórios:', error);
+        if (active) setLoadError(true);
+      }
     }
+
     loadData();
+    window.addEventListener('namao_data_changed', loadData);
+    return () => {
+      active = false;
+      window.removeEventListener('namao_data_changed', loadData);
+    };
   }, []);
 
+  const displayedExpenses = useMemo(() => getReportExpenses(allExpenses, {
+    filterMode,
+    currentDate,
+  }), [allExpenses, filterMode, currentDate]);
+  const summary = useMemo(() => summarizeReportExpenses(displayedExpenses), [displayedExpenses]);
+  const categoryEntries = useMemo(() => Object.entries(summary.categoryTotals)
+    .sort(([, amountA], [, amountB]) => amountB - amountA), [summary.categoryTotals]);
+
+  const chunks = useMemo(() => {
+    const firstPageRows = categoryEntries.length > 0 ? 3 : 7;
+    const otherPageRows = 15;
+    const remaining = [...displayedExpenses];
+    const pages = [];
+
+    if (remaining.length === 0) return [[]];
+    pages.push(remaining.splice(0, firstPageRows));
+    while (remaining.length > 0) pages.push(remaining.splice(0, otherPageRows));
+    return pages;
+  }, [categoryEntries.length, displayedExpenses]);
+
   useEffect(() => {
-    let filtered = allExpenses;
+    reportRefs.current.length = chunks.length;
+  }, [chunks.length]);
 
-    if (filterMode === 'month') {
-      const month = currentDate.getMonth();
-      const year = currentDate.getFullYear();
-      
-      filtered = allExpenses.filter(item => {
-        const itemDate = new Date(item.date + 'T12:00:00');
-        return itemDate.getMonth() === month && itemDate.getFullYear() === year;
-      });
-    }
-
-    setDisplayedExpenses(filtered);
-    
-    let currentBalance = 0;
-    let currentToPay = 0;
-    const catTotals = {};
-    let totalExp = 0;
-
-    filtered.forEach(item => {
-      if (item.type === 'income') {
-        currentBalance += item.amount;
-      } else if (item.type === 'expense') {
-        if (item.status === 'paid') {
-          currentBalance -= item.amount;
-        }
-
-        if (item.status !== 'planned') {
-          const cat = item.category || 'outros';
-          catTotals[cat] = (catTotals[cat] || 0) + item.amount;
-          totalExp += item.amount;
-        }
-        
-        if (item.status === 'unpaid') {
-          currentToPay += item.amount;
-        }
-      }
-    });
-
-    setBalance(currentBalance);
-    setToPay(currentToPay);
-    setCategoryTotals(catTotals);
-    setTotalExpenseAmount(totalExp);
-  }, [allExpenses, filterMode, currentDate]);
-
-  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const reportTitle = filterMode === 'all'
+    ? 'Relatório Geral (Histórico até hoje)'
+    : `Relatório - ${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+  const periodDescription = filterMode === 'all'
+    ? 'O geral considera lançamentos com data até hoje. Projeções futuras aparecem no mês correspondente.'
+    : 'Valores do mês selecionado, incluindo despesas a pagar e planejamentos.';
 
   const changeMonth = (offset) => {
+    if (isExporting) return;
     const newDate = new Date(currentDate);
     newDate.setMonth(currentDate.getMonth() + offset);
     setCurrentDate(newDate);
   };
 
-  const getReportTitle = () => {
-    if (filterMode === 'all') return 'Relatório Geral (Todos os Meses)';
-    return `Relatório - ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-  };
-
   const handleExportPDF = async () => {
-    if (!reportRefs.current || reportRefs.current.length === 0) return;
-    setIsExporting(true);
-    
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      
-      for (let i = 0; i < chunks.length; i++) {
-        if (!reportRefs.current[i]) continue;
-        
-        if (i > 0) pdf.addPage();
-        const canvas = await html2canvas(reportRefs.current[i], { scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-      }
-      
-      const pdfBlob = pdf.output('blob');
-      const filename = `relatorio_namao_${new Date().toISOString().split('T')[0]}.pdf`;
+    if (displayedExpenses.length === 0) {
+      showAlert('Atenção', 'Não há movimentações no período selecionado para exportar.');
+      return;
+    }
 
-      if (navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], filename, { type: 'application/pdf' })] })) {
-        const confirmed = await showConfirm('Compartilhar', 'Deseja compartilhar o relatório direto no WhatsApp/Outros? (Cancele para apenas salvar no dispositivo)');
+    const reportElements = chunks.map((_, index) => reportRefs.current[index]);
+    if (reportElements.some((element) => !element)) {
+      showAlert('Atenção', 'O relatório ainda está sendo preparado. Tente novamente em um instante.');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // As bibliotecas pesadas só são baixadas quando o usuário exporta.
+      const [pdfModule, canvasModule] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas'),
+      ]);
+      const JsPdf = pdfModule.jsPDF || pdfModule.default;
+      const html2canvas = canvasModule.default || canvasModule;
+      const pdf = new JsPdf('p', 'mm', 'a4');
+      let hasPdfContent = false;
+
+      for (const element of reportElements) {
+        const canvas = await html2canvas(element, {
+          scale: 1.5,
+          backgroundColor: '#F8FAFC',
+          useCORS: true,
+        });
+        hasPdfContent = addCanvasToPdf(pdf, canvas, hasPdfContent);
+      }
+
+      if (!hasPdfContent) throw new Error('Não foi possível montar as páginas do relatório.');
+
+      const filename = `relatorio_namao_${formatLocalFileDate()}.pdf`;
+      const pdfBlob = pdf.output('blob');
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        const confirmed = await showConfirm(
+          'Compartilhar',
+          'Deseja compartilhar o relatório direto no WhatsApp ou outro aplicativo? Cancele para apenas salvar no dispositivo.',
+        );
         if (confirmed) {
           try {
             await navigator.share({
               title: 'Relatório NaMão',
               text: 'Aqui está meu relatório financeiro.',
-              files: [new File([pdfBlob], filename, { type: 'application/pdf' })],
+              files: [file],
             });
             return;
-          } catch (shareErr) {
-            console.log('Compartilhamento cancelado ou falhou', shareErr);
+          } catch (shareError) {
+            console.log('Compartilhamento cancelado ou indisponível:', shareError);
           }
         }
       }
 
       pdf.save(filename);
-
-    } catch (err) {
-      console.error(err);
-      showAlert('Erro', 'Erro ao gerar PDF');
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      showAlert('Erro', 'Não foi possível gerar o PDF. Tente novamente em alguns instantes.');
     } finally {
       setIsExporting(false);
     }
   };
-
-
-
-  // Precisamos converter a imagem da logo pra Base64 para injetar no PDF corretamente via HTML2Canvas
-  // Como é local, vamos tentar renderizar a tag img normalmente, mas se falhar no CORS, html2canvas pode ignorar.
-  // Como estamos no mesmo domínio, deve funcionar.
-
-  const FIRST_PAGE_ROWS = totalExpenseAmount > 0 ? 5 : 12;
-  const OTHER_PAGE_ROWS = 20;
-  
-  const chunks = [];
-  let remaining = [...displayedExpenses];
-  if (remaining.length === 0) {
-    chunks.push([]);
-  } else {
-    chunks.push(remaining.splice(0, FIRST_PAGE_ROWS));
-    while (remaining.length > 0) {
-      chunks.push(remaining.splice(0, OTHER_PAGE_ROWS));
-    }
-  }
 
   return (
     <div className="animate-fade-up">
@@ -165,275 +242,203 @@ export default function Report() {
         <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>Relatórios</h1>
       </header>
 
-      {/* Tipo de Filtro */}
       <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', gap: '8px', padding: '12px' }}>
-        <button 
+        <button
+          type="button"
           onClick={() => setFilterMode('all')}
-          style={{ 
-            flex: 1, 
-            padding: '12px', 
-            borderRadius: '12px',
-            border: 'none',
+          disabled={isExporting}
+          style={{
+            flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
             background: filterMode === 'all' ? 'var(--color-emerald-primary)' : 'transparent',
-            color: filterMode === 'all' ? '#fff' : 'var(--text-secondary)',
-            fontWeight: '600'
+            color: filterMode === 'all' ? '#fff' : 'var(--text-secondary)', fontWeight: '600',
+            cursor: isExporting ? 'not-allowed' : 'pointer', opacity: isExporting ? 0.65 : 1,
           }}
         >
           Geral
         </button>
-        <button 
+        <button
+          type="button"
           onClick={() => setFilterMode('month')}
-          style={{ 
-            flex: 1, 
-            padding: '12px', 
-            borderRadius: '12px',
-            border: 'none',
+          disabled={isExporting}
+          style={{
+            flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
             background: filterMode === 'month' ? 'var(--color-emerald-primary)' : 'transparent',
-            color: filterMode === 'month' ? '#fff' : 'var(--text-secondary)',
-            fontWeight: '600'
+            color: filterMode === 'month' ? '#fff' : 'var(--text-secondary)', fontWeight: '600',
+            cursor: isExporting ? 'not-allowed' : 'pointer', opacity: isExporting ? 0.65 : 1,
           }}
         >
           Por Mês
         </button>
       </div>
 
-      {/* Seletor de Mês (se ativado) */}
       {filterMode === 'month' && (
         <div className="glass-card animate-fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', marginBottom: '16px' }}>
-          <button onClick={() => changeMonth(-1)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none' }}>
+          <button type="button" aria-label="Mês anterior" onClick={() => changeMonth(-1)} disabled={isExporting} style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', opacity: isExporting ? 0.5 : 1 }}>
             <ChevronLeft size={24} />
           </button>
-          <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0, fontWeight: '600' }}>
-            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-          </h3>
-          <button onClick={() => changeMonth(1)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none' }}>
+          <h2 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0, fontWeight: '600' }}>
+            {MONTH_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}
+          </h2>
+          <button type="button" aria-label="Próximo mês" onClick={() => changeMonth(1)} disabled={isExporting} style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', opacity: isExporting ? 0.5 : 1 }}>
             <ChevronRight size={24} />
           </button>
         </div>
       )}
 
-      <div className="glass-card" style={{ textAlign: 'center', marginTop: '16px', marginBottom: '32px' }}>
-        <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)' }}>{getReportTitle()}</h3>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem' }}>
-          Gere um PDF com layout premium e compartilhe via WhatsApp.
-        </p>
-        <button 
-          onClick={handleExportPDF} 
-          className="btn-primary" 
-          style={{ width: '100%' }}
-          disabled={isExporting}
-        >
-          {isExporting ? 'Gerando...' : 'Exportar & Compartilhar'}
+      <section className="glass-card" style={{ marginBottom: '24px', padding: '20px' }}>
+        <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: '1.08rem' }}>{reportTitle}</h2>
+        <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px', fontSize: '0.84rem', lineHeight: 1.45 }}>{periodDescription}</p>
+        <button type="button" onClick={handleExportPDF} className="btn-primary" style={{ width: '100%' }} disabled={isExporting || displayedExpenses.length === 0}>
+          {isExporting ? 'Gerando PDF...' : 'Exportar & Compartilhar'}
         </button>
-      </div>
+      </section>
 
-      {/* Gráfico de Pizza (Categorias) */}
-      {totalExpenseAmount > 0 && (
-        <div className="glass-card animate-fade-up" style={{ marginBottom: '32px', padding: '24px' }}>
-          <h3 style={{ marginBottom: '8px', color: 'var(--text-primary)', fontSize: '1.1rem', textAlign: 'center' }}>Distribuição de Gastos</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'center', marginBottom: '16px' }}>Onde seu dinheiro está indo</p>
-          
-          <div style={{ width: '100%', height: 250 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={Object.entries(categoryTotals).map(([catId, amount]) => ({
-                    name: getCategory(catId).label,
-                    value: amount,
-                    icon: getCategory(catId).icon
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {Object.entries(categoryTotals).map((entry, index) => {
-                    const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F43F5E', '#64748B'];
-                    return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />;
-                  })}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ background: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-shadow)', color: 'var(--text-primary)' }}
-                  itemStyle={{ fontWeight: '600' }}
-                  formatter={(value, name) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, name]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+      {loadError && (
+        <div className="glass-card" role="alert" style={{ border: '1px solid rgba(244, 63, 94, 0.35)', marginBottom: '24px' }}>
+          <h2 style={{ color: 'var(--color-crimson-dark)', fontSize: '1rem', marginBottom: '8px' }}>Não foi possível carregar os relatórios</h2>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Verifique o armazenamento do dispositivo e tente abrir a página novamente.</p>
         </div>
       )}
 
-      {/* Resumo de Categorias Visual */}
-      {totalExpenseAmount > 0 && (
-        <div className="glass-card" style={{ marginBottom: '32px', padding: '24px' }}>
-          <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)', fontSize: '1.1rem' }}>Despesas por Categoria</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {Object.entries(categoryTotals)
-              .sort((a, b) => b[1] - a[1])
-              .map(([catId, amount]) => {
-                const cat = getCategory(catId);
-                const percent = ((amount / totalExpenseAmount) * 100).toFixed(1);
-                return (
-                  <div key={catId}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.9rem' }}>
-                      <span style={{ color: 'var(--text-primary)' }}>{cat.icon} {cat.label}</span>
-                      <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({percent}%)</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(15, 23, 42, 0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${percent}%`, height: '100%', background: 'var(--color-crimson-primary)', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+      {displayedExpenses.length === 0 && !loadError && (
+        <div className="glass-card" style={{ textAlign: 'center', padding: '32px 16px', marginBottom: '24px' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>📊</div>
+          <h2 style={{ color: 'var(--text-primary)', marginBottom: '8px', fontSize: '1.05rem' }}>Nenhum lançamento no período</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>Altere o mês ou adicione novas receitas e despesas para gerar o relatório.</p>
         </div>
       )}
 
-      {/* CONTEÚDO DO PDF (Oculto) */}
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+      {displayedExpenses.length > 0 && (
+        <>
+          <section className="glass-card" style={{ marginBottom: '24px', padding: '20px' }}>
+            <h2 style={{ margin: '0 0 14px', color: 'var(--text-primary)', fontSize: '1.05rem' }}>Resumo financeiro</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+              <SummaryMetric label="Receitas lançadas" value={summary.incomeTotal} color="var(--color-emerald-dark)" />
+              <SummaryMetric label="Despesas pagas" value={summary.paidExpenseTotal} color="var(--color-crimson-dark)" />
+              <SummaryMetric label="A pagar" value={summary.unpaidExpenseTotal} color="var(--color-crimson-dark)" />
+              <SummaryMetric label="Planejadas" value={summary.plannedExpenseTotal} color="#b45309" />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '14px' }}>
+              <div style={{ padding: '14px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.08)' }}>
+                <p style={{ margin: '0 0 5px', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '600' }}>SALDO REALIZADO</p>
+                <strong style={{ color: summary.cashBalance >= 0 ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)' }}>{formatSignedMoney(summary.cashBalance)}</strong>
+              </div>
+              <div style={{ padding: '14px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.09)' }}>
+                <p style={{ margin: '0 0 5px', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '600' }}>SALDO PREVISTO</p>
+                <strong style={{ color: summary.projectedBalance >= 0 ? '#047857' : 'var(--color-crimson-dark)' }}>{formatSignedMoney(summary.projectedBalance)}</strong>
+              </div>
+            </div>
+          </section>
+
+          {summary.registeredExpenseTotal > 0 && (
+            <section className="glass-card animate-fade-up" style={{ marginBottom: '24px', padding: '20px' }}>
+              <h2 style={{ margin: '0 0 6px', color: 'var(--text-primary)', fontSize: '1.05rem', textAlign: 'center' }}>Distribuição de despesas</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', textAlign: 'center', margin: '0 0 4px' }}>Pagas e a pagar: {formatMoney(summary.registeredExpenseTotal)}</p>
+              <p style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem', textAlign: 'center', margin: '0 0 14px' }}>Planejamentos são exibidos separadamente no resumo.</p>
+              <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={categoryEntries.map(([categoryId, amount]) => ({ name: getCategory(categoryId).label, value: amount }))} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" stroke="none">
+                      {categoryEntries.map(([,], index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-shadow)', color: 'var(--text-primary)' }} itemStyle={{ fontWeight: '600' }} formatter={(value, name) => [formatMoney(value), name]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
+          {summary.registeredExpenseTotal > 0 && (
+            <section className="glass-card" style={{ marginBottom: '32px', padding: '20px' }}>
+              <h2 style={{ marginBottom: '6px', color: 'var(--text-primary)', fontSize: '1.05rem' }}>Despesas por categoria</h2>
+              <p style={{ margin: '0 0 16px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Inclui despesas pagas e a pagar.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {categoryEntries.map(([categoryId, amount]) => {
+                  const category = getCategory(categoryId);
+                  const percent = (amount / summary.registeredExpenseTotal) * 100;
+                  return (
+                    <div key={categoryId}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px', fontSize: '0.88rem' }}>
+                        <span style={{ color: 'var(--text-primary)' }}>{category.icon} {category.label}</span>
+                        <span style={{ color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>{formatMoney(amount)} ({percent.toFixed(1)}%)</span>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: 'rgba(15, 23, 42, 0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${percent}%`, height: '100%', background: 'var(--color-crimson-primary)', borderRadius: '4px' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         {chunks.map((chunk, pageIndex) => (
-          <div key={pageIndex} ref={el => reportRefs.current[pageIndex] = el} style={{ 
-            width: '800px', 
-            padding: '40px', 
-            background: '#F8FAFC', 
-            color: '#1E293B', 
-            fontFamily: 'sans-serif' 
-          }}>
-            {/* Cabeçalho do PDF Premium (apenas na primeira página) */}
+          <div key={pageIndex} ref={(element) => { reportRefs.current[pageIndex] = element; }} style={{ width: '800px', padding: '40px', background: '#F8FAFC', color: '#1E293B', fontFamily: 'Arial, sans-serif' }}>
             {pageIndex === 0 && (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', borderBottom: '2px solid rgba(16, 185, 129, 0.2)', paddingBottom: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <img src="/logo.png" alt="Logo" style={{ width: '60px', height: '60px', borderRadius: '16px' }} crossOrigin="anonymous" />
-                    <div>
-                      <h1 style={{ color: '#059669', margin: 0, fontSize: '28px' }}>NaMão</h1>
-                      <p style={{ color: '#64748B', margin: '4px 0 0 0', fontSize: '16px' }}>Gestão Financeira Inteligente</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', borderBottom: '2px solid rgba(16, 185, 129, 0.2)', paddingBottom: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <img src="/logo.png" alt="" style={{ width: '54px', height: '54px', borderRadius: '14px' }} crossOrigin="anonymous" />
+                    <div><h1 style={{ color: '#059669', margin: 0, fontSize: '27px' }}>NaMão</h1><p style={{ color: '#64748B', margin: '3px 0 0', fontSize: '14px' }}>Gestão Financeira Inteligente</p></div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}><h2 style={{ margin: 0, color: '#1E293B', fontSize: '18px' }}>{reportTitle}</h2><p style={{ margin: '6px 0 0', color: '#64748B', fontSize: '13px' }}>Gerado em: {new Date().toLocaleDateString('pt-BR')}</p></div>
+                </div>
+                <p style={{ color: '#64748B', margin: '0 0 18px', fontSize: '13px' }}>{periodDescription}</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '18px' }}>
+                  {[
+                    ['Receitas lançadas', summary.incomeTotal, '#059669'], ['Despesas pagas', summary.paidExpenseTotal, '#E11D48'],
+                    ['A pagar', summary.unpaidExpenseTotal, '#E11D48'], ['Planejadas', summary.plannedExpenseTotal, '#b45309'],
+                    ['Saldo realizado', summary.cashBalance, summary.cashBalance >= 0 ? '#059669' : '#E11D48'],
+                    ['Saldo previsto', summary.projectedBalance, summary.projectedBalance >= 0 ? '#047857' : '#E11D48'],
+                  ].map(([label, value, color]) => (
+                    <div key={label} style={{ background: '#FFFFFF', padding: '13px 16px', borderRadius: '14px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+                      <p style={{ margin: '0 0 4px', color: '#64748B', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</p>
+                      <strong style={{ color, fontSize: '17px' }}>{String(label).includes('Saldo') ? formatSignedMoney(value) : formatMoney(value)}</strong>
                     </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <h2 style={{ margin: 0, color: '#1E293B', fontSize: '20px' }}>{getReportTitle()}</h2>
-                    <p style={{ margin: '8px 0 0 0', color: '#64748B' }}>Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
-                  </div>
+                  ))}
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '40px' }}>
-                  <div style={{ 
-                    background: '#FFFFFF', 
-                    padding: '24px', 
-                    borderRadius: '24px', 
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-                    border: '1px solid rgba(16, 185, 129, 0.1)',
-                    textAlign: 'center'
-                  }}>
-                    <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>{filterMode === 'all' ? 'Saldo Histórico' : 'Saldo do Mês'}</p>
-                    <h1 style={{ margin: 0, fontSize: '28px', color: balance >= 0 ? '#059669' : '#E11D48', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {balance < 0 ? '- R$ ' : 'R$ '}{Math.abs(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </h1>
-                  </div>
-                  
-                  <div style={{ 
-                    background: '#FFFFFF', 
-                    padding: '24px', 
-                    borderRadius: '24px', 
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-                    border: '1px solid rgba(244, 63, 94, 0.1)',
-                    textAlign: 'center'
-                  }}>
-                    <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>{filterMode === 'all' ? 'Pendências Acumuladas' : 'Faturas a Pagar'}</p>
-                    <h1 style={{ margin: 0, fontSize: '28px', color: '#E11D48', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      R$ {toPay.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </h1>
-                  </div>
-                </div>
-
-                {totalExpenseAmount > 0 && (
-                  <div style={{ background: '#FFFFFF', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid rgba(15, 23, 42, 0.05)', marginBottom: '40px' }}>
-                    <h3 style={{ margin: '0 0 16px 0', color: '#1E293B', fontSize: '18px' }}>Despesas por Categoria</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {Object.entries(categoryTotals)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([catId, amount]) => {
-                          const cat = getCategory(catId);
-                          const percent = ((amount / totalExpenseAmount) * 100).toFixed(1);
-                          return (
-                            <div key={catId}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '14px' }}>
-                                <span style={{ color: '#1E293B' }}>{cat.icon} {cat.label}</span>
-                                <span style={{ color: '#64748B', fontWeight: '600' }}>R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({percent}%)</span>
-                              </div>
-                              <div style={{ width: '100%', height: '8px', background: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
-                                <div style={{ width: `${percent}%`, height: '100%', background: '#E11D48', borderRadius: '4px' }}></div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                {summary.registeredExpenseTotal > 0 && (
+                  <div style={{ background: '#FFFFFF', borderRadius: '14px', padding: '16px', border: '1px solid rgba(15, 23, 42, 0.06)', marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 6px', color: '#1E293B', fontSize: '16px' }}>Despesas por categoria</h3>
+                    <p style={{ margin: '0 0 12px', color: '#64748B', fontSize: '12px' }}>Pagas e a pagar: {formatMoney(summary.registeredExpenseTotal)}.</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {categoryEntries.map(([categoryId, amount]) => {
+                        const category = getCategory(categoryId);
+                        const percent = (amount / summary.registeredExpenseTotal) * 100;
+                        return <div key={categoryId}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', fontSize: '12px' }}><span>{category.icon} {category.label}</span><span style={{ color: '#64748B', fontWeight: '600' }}>{formatMoney(amount)} ({percent.toFixed(1)}%)</span></div><div style={{ width: '100%', height: '6px', background: '#F1F5F9', borderRadius: '3px', overflow: 'hidden' }}><div style={{ width: `${percent}%`, height: '100%', background: '#E11D48', borderRadius: '3px' }} /></div></div>;
+                      })}
                     </div>
                   </div>
                 )}
               </>
             )}
 
-            {pageIndex > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid rgba(15, 23, 42, 0.1)', paddingBottom: '16px' }}>
-                <h2 style={{ color: '#059669', margin: 0, fontSize: '20px' }}>NaMão - Continuação</h2>
-                <span style={{ color: '#64748B', fontSize: '14px' }}>Página {pageIndex + 1}</span>
-              </div>
-            )}
-            
-            {/* Tabela de Dados */}
-            <div style={{ background: '#FFFFFF', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid rgba(15, 23, 42, 0.05)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#1E293B' }}>
-                <thead>
-                  <tr style={{ background: '#F1F5F9', textAlign: 'left' }}>
-                    <th style={{ padding: '16px', borderRadius: '12px 0 0 12px', color: '#64748B' }}>Data</th>
-                    <th style={{ padding: '16px', color: '#64748B' }}>Descrição</th>
-                    <th style={{ padding: '16px', color: '#64748B' }}>Situação</th>
-                    <th style={{ padding: '16px', borderRadius: '0 12px 12px 0', textAlign: 'right', color: '#64748B' }}>Valor</th>
-                  </tr>
-                </thead>
+            {pageIndex > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.1)', paddingBottom: '12px' }}><h2 style={{ color: '#059669', margin: 0, fontSize: '18px' }}>NaMão — continuação</h2><span style={{ color: '#64748B', fontSize: '12px' }}>Página {pageIndex + 1}</span></div>}
+
+            <div style={{ background: '#FFFFFF', borderRadius: '14px', padding: '16px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#1E293B', fontSize: '12px' }}>
+                <thead><tr style={{ background: '#F1F5F9', textAlign: 'left' }}><th style={{ width: '13%', padding: '11px 8px', color: '#64748B' }}>Data</th><th style={{ width: '29%', padding: '11px 8px', color: '#64748B' }}>Descrição</th><th style={{ width: '18%', padding: '11px 8px', color: '#64748B' }}>Categoria</th><th style={{ width: '16%', padding: '11px 8px', color: '#64748B' }}>Situação</th><th style={{ width: '24%', padding: '11px 8px', textAlign: 'right', color: '#64748B' }}>Valor</th></tr></thead>
                 <tbody>
-                  {chunk.map((exp, idx) => (
-                    <tr key={exp.id} style={{ borderBottom: idx === chunk.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-                      <td style={{ padding: '16px 16px', color: '#64748B' }}>{exp.date.split('-').reverse().join('/')}</td>
-                      <td style={{ padding: '16px 16px', fontWeight: '500' }}>
-                        {exp.type === 'expense' ? getCategory(exp.category).icon + ' ' : '💰 '}{exp.description}
-                      </td>
-                      <td style={{ padding: '16px 16px' }}>
-                        <span style={{ 
-                          background: exp.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : (exp.status === 'planned' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(244, 63, 94, 0.1)'), 
-                          color: exp.status === 'paid' ? '#059669' : (exp.status === 'planned' ? '#f59e0b' : '#E11D48'),
-                          padding: '4px 12px',
-                          borderRadius: '100px',
-                          fontSize: '12px',
-                          fontWeight: '600'
-                        }}>
-                          {exp.status === 'paid' ? 'Pago' : (exp.status === 'planned' ? 'Planejado' : 'Pendente')}
-                        </span>
-                      </td>
-                      <td style={{ padding: '16px 16px', textAlign: 'right', fontWeight: '700', color: exp.type === 'income' ? '#059669' : '#E11D48' }}>
-                        {exp.type === 'income' ? '+' : '-'} R$ {exp.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-                  {chunk.length === 0 && (
-                    <tr>
-                      <td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: '#94A3B8' }}>
-                        Nenhuma movimentação neste período.
-                      </td>
-                    </tr>
-                  )}
+                  {chunk.map((expense, index) => {
+                    const status = getStatusInfo(expense);
+                    const category = expense.type === 'expense' ? getCategory(expense.category) : null;
+                    return (
+                      <tr key={expense.id} style={{ borderBottom: index === chunk.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '11px 8px', color: '#64748B' }}>{expense.date.split('-').reverse().join('/')}</td>
+                        <td style={{ padding: '11px 8px', fontWeight: '500', overflowWrap: 'anywhere' }}>{expense.type === 'income' ? '💰 ' : `${category.icon} `}{expense.description}</td>
+                        <td style={{ padding: '11px 8px', color: '#64748B' }}>{category ? category.label : 'Renda'}</td>
+                        <td style={{ padding: '11px 8px' }}><span style={{ background: status.background, color: status.color, padding: '3px 7px', borderRadius: '99px', fontSize: '10px', fontWeight: '600', whiteSpace: 'nowrap' }}>{status.label}</span></td>
+                        <td style={{ padding: '11px 8px', textAlign: 'right', fontWeight: '700', color: expense.type === 'income' ? '#059669' : '#E11D48', whiteSpace: 'nowrap' }}>{expense.type === 'income' ? '+' : '-'} {formatMoney(expense.amount)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            
-            {pageIndex === chunks.length - 1 && (
-              <div style={{ textAlign: 'center', marginTop: '40px', color: '#94A3B8', fontSize: '14px' }}>
-                Documento gerado automaticamente pelo aplicativo NaMão
-              </div>
-            )}
+            {pageIndex === chunks.length - 1 && <div style={{ textAlign: 'center', marginTop: '24px', color: '#94A3B8', fontSize: '12px' }}>Documento gerado automaticamente pelo aplicativo NaMão</div>}
           </div>
         ))}
       </div>
