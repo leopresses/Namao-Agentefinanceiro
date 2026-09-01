@@ -37,7 +37,7 @@ const Sidebar = () => {
         zIndex: 50
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '48px' }}>
-          <img src="/app_icon.png" alt="Logo" style={{ width: '40px', height: '40px' }} />
+          <img src="/logo.png?v=20260901" alt="Logo do NaMão" style={{ width: '40px', height: '40px' }} />
           <h1 className="app-title" style={{ fontSize: '1.8rem', margin: 0 }}>NaMão</h1>
         </div>
 

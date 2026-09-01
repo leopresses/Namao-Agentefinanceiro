@@ -1,3 +1,4 @@
-// Canal público para solicitações de privacidade e suporte. Pode ser
-// substituído por VITE_PRIVACY_EMAIL em ambientes que precisem de outro canal.
-export const PRIVACY_EMAIL = import.meta.env.VITE_PRIVACY_EMAIL || 'suporteappnamao@gmail.com';
+// Canal público único para solicitações de privacidade e suporte.
+// Mantido no código para uma variável antiga da hospedagem não sobrescrever
+// o endereço exibido aos usuários.
+export const PRIVACY_EMAIL = 'suporteappnamao@gmail.com';

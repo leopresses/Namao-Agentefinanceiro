@@ -502,7 +502,7 @@ export default function Report() {
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', borderBottom: '2px solid rgba(16, 185, 129, 0.2)', paddingBottom: '18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <img src="/logo.png" alt="" style={{ width: '54px', height: '54px', borderRadius: '14px' }} crossOrigin="anonymous" />
+                    <img src="/logo.png?v=20260901" alt="Logo do NaMão" style={{ width: '54px', height: '54px', borderRadius: '14px' }} crossOrigin="anonymous" />
                     <div><h1 style={{ color: '#059669', margin: 0, fontSize: '27px' }}>NaMão</h1><p style={{ color: '#64748B', margin: '3px 0 0', fontSize: '14px' }}>Gestão Financeira Inteligente</p></div>
                   </div>
                   <div style={{ textAlign: 'right' }}><h2 style={{ margin: 0, color: '#1E293B', fontSize: '18px' }}>{reportTitle}</h2><p style={{ margin: '6px 0 0', color: '#64748B', fontSize: '13px' }}>Gerado em: {new Date().toLocaleDateString('pt-BR')}</p></div>

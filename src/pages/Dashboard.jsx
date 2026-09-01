@@ -205,7 +205,7 @@ export default function Dashboard() {
       try {
         new window.Notification(alert.title, {
           body: alert.body,
-          icon: '/logo.png',
+          icon: '/logo.png?v=20260901',
           tag: 'namao-financial-alerts',
         });
         localStorage.setItem(storageKey, alert.signature);
@@ -221,7 +221,7 @@ export default function Dashboard() {
     <div className="animate-fade-up">
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
         <h1 className="app-title" style={{ margin: 0 }}>
-          <img src="/logo.png" alt="NaMão Logo" className="logo-icon" />
+          <img src="/logo.png?v=20260901" alt="Logo do NaMão" className="logo-icon" />
           NaMão
         </h1>
       </header>

@@ -101,7 +101,7 @@ export default function PwaPrompt() {
       </button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px', borderRadius: '10px' }} />
+        <img src="/logo.png?v=20260901" alt="Logo do NaMão" style={{ width: '40px', height: '40px', borderRadius: '10px' }} />
         <div>
           <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>{updateApp ? 'Atualização disponível' : 'Instalar NaMão'}</h4>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{updateApp ? 'Uma versão mais recente está pronta para usar.' : 'Acesso rápido offline'}</p>

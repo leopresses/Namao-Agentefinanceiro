@@ -104,7 +104,7 @@ export default function Login() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', margin: '-24px', padding: '24px' }}>
       <div className="glass-card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', background: 'var(--bg-primary)' }}>
-        <img src="/app_icon.png" alt="NaMão Logo" style={{ width: '80px', height: '80px', marginBottom: '8px', filter: 'drop-shadow(0 4px 6px rgba(16, 185, 129, 0.2))' }} />
+        <img src="/logo.png?v=20260901" alt="Logo do NaMão" style={{ width: '80px', height: '80px', marginBottom: '8px', filter: 'drop-shadow(0 4px 6px rgba(16, 185, 129, 0.2))' }} />
         <h1 className="app-title" style={{ fontSize: '2.5rem', marginBottom: '8px', color: 'var(--color-emerald-primary)', justifyContent: 'center' }}>NaMão</h1>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>Seu Agente Financeiro Inteligente</p>
         

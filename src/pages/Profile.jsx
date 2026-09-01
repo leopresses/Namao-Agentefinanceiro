@@ -259,7 +259,7 @@ export default function Profile() {
     try {
       new window.Notification('Alertas do NaMão ativados', {
         body: 'Você receberá avisos de vencimentos e do limite do orçamento ao abrir o app.',
-        icon: '/logo.png',
+        icon: '/logo.png?v=20260901',
         tag: 'namao-alerts-enabled',
       });
     } catch (error) {
