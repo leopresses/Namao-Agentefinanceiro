@@ -20,12 +20,13 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: 'app_icon.png',
+            src: 'app-icon-192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: 'app_icon.png',
+            src: 'app-icon-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
