@@ -20,9 +20,9 @@ export function DialogProvider({ children }) {
     setDialogs(prev => prev.filter(d => d.id !== id));
   }, []);
 
-  const showAlert = (title, message) => showDialog({ title, message, type: 'alert' });
+  const showAlert = useCallback((title, message) => showDialog({ title, message, type: 'alert' }), [showDialog]);
   
-  const showConfirm = (title, message) => {
+  const showConfirm = useCallback((title, message) => {
     return new Promise((resolve) => {
       showDialog({
         title,
@@ -32,9 +32,9 @@ export function DialogProvider({ children }) {
         onCancel: () => resolve(false)
       });
     });
-  };
+  }, [showDialog]);
 
-  const showPrompt = (title, message, defaultValue = '') => {
+  const showPrompt = useCallback((title, message, defaultValue = '') => {
     return new Promise((resolve) => {
       showDialog({
         title,
@@ -45,7 +45,7 @@ export function DialogProvider({ children }) {
         onCancel: () => resolve(null)
       });
     });
-  };
+  }, [showDialog]);
 
   const showProModal = () => setIsProModalOpen(true);
   const closeProModal = () => setIsProModalOpen(false);

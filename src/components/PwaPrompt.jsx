@@ -9,6 +9,7 @@ export default function PwaPrompt() {
     return /android/i.test(ua) ? 'android' : 'desktop';
   });
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [updateApp, setUpdateApp] = useState(null);
 
   useEffect(() => {
     // Verifica se já viu o prompt recentemente (não incomodar)
@@ -35,9 +36,18 @@ export default function PwaPrompt() {
     const handleManualTrigger = () => setIsOpen(true);
     window.addEventListener('trigger-pwa-prompt', handleManualTrigger);
 
+    const handleUpdateAvailable = (event) => {
+      if (typeof event.detail?.update === 'function') {
+        setUpdateApp(() => event.detail.update);
+        setIsOpen(true);
+      }
+    };
+    window.addEventListener('namao_update_available', handleUpdateAvailable);
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('trigger-pwa-prompt', handleManualTrigger);
+      window.removeEventListener('namao_update_available', handleUpdateAvailable);
       if (timerId) window.clearTimeout(timerId);
     };
   }, [deviceType]);
@@ -56,6 +66,11 @@ export default function PwaPrompt() {
         setIsOpen(false);
       }
     }
+  };
+
+  const handleUpdateClick = async () => {
+    if (!updateApp) return;
+    await updateApp();
   };
 
   if (!isOpen) return null;
@@ -88,12 +103,16 @@ export default function PwaPrompt() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px', borderRadius: '10px' }} />
         <div>
-          <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>Instalar NaMão</h4>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Acesso rápido offline</p>
+          <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>{updateApp ? 'Atualização disponível' : 'Instalar NaMão'}</h4>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{updateApp ? 'Uma versão mais recente está pronta para usar.' : 'Acesso rápido offline'}</p>
         </div>
       </div>
 
-      {deviceType === 'ios' ? (
+      {updateApp ? (
+        <button onClick={handleUpdateClick} className="btn-primary" style={{ width: '100%', padding: '12px' }}>
+          Atualizar agora
+        </button>
+      ) : deviceType === 'ios' ? (
         <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '12px' }}>
           Para instalar no iPhone:<br/>
           1. Toque no ícone Compartilhar <Share size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /><br/>

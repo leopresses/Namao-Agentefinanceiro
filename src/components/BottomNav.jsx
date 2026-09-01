@@ -1,15 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Plus, User, Bot, FileText, ArrowDownCircle, ArrowUpCircle, Mic, X } from 'lucide-react';
-import { getIdToken } from '../services/firebase';
+import { useVoiceExpense } from '../hooks/useVoiceExpense';
 
 const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
-  const recognitionRef = useRef(null);
-  const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { isListening, isProcessing, handleVoice, cancelVoice } = useVoiceExpense();
 
   const toggleMenu = (e) => {
     e.preventDefault();
@@ -21,76 +19,9 @@ const BottomNav = () => {
     navigate(`/expense/new?type=${type}`);
   };
 
-  const handleVoice = () => {
+  const handleVoiceEntry = () => {
     setShowMenu(false);
-    
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Seu navegador não suporta reconhecimento de voz.');
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    recognition.lang = 'pt-BR';
-    recognition.interimResults = false;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onresult = async (event) => {
-      setIsListening(false);
-      const text = event.results[0][0].transcript;
-      
-      setIsProcessing(true);
-      try {
-        const token = await getIdToken();
-        const response = await fetch('/api/extract-expense', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ text })
-        });
-        
-        if (!response.ok) throw new Error('Falha na API');
-        const data = await response.json();
-        
-        setIsProcessing(false);
-        const params = new URLSearchParams();
-        if (data.amount) params.set('amount', data.amount);
-        if (data.description) params.set('description', data.description);
-        if (data.category) params.set('category', data.category);
-        params.set('type', data.type === 'income' ? 'income' : 'expense');
-        params.set('voice', 'true');
-        
-        navigate(`/expense/new?${params.toString()}`);
-      } catch {
-        setIsProcessing(false);
-        alert('Erro ao processar a voz. Tente novamente.');
-      }
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-      setIsProcessing(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-  };
-
-  const cancelVoice = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.abort();
-    }
-    setIsListening(false);
-    setIsProcessing(false);
+    handleVoice();
   };
 
   if (location.pathname === '/login') return null;
@@ -108,7 +39,7 @@ const BottomNav = () => {
       {showMenu && (
         <div className="action-menu" style={{ zIndex: 100 }}>
           <button 
-            onClick={handleVoice} 
+            onClick={handleVoiceEntry}
             className="btn-primary" 
             style={{ width: '100%', padding: '12px', boxShadow: 'none', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none' }}
           >

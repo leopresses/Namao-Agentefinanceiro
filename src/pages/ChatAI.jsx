@@ -1,38 +1,68 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getExpenses } from '../services/db';
-import { getCategory } from '../utils/categories';
+import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
 import { getIdToken, getUserProStatus, onAuthChange } from '../services/firebase';
 import { MessageSquarePlus, History, Trash2, X, Sparkles } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
+import { buildFinancialContext } from '../utils/financialContext';
+
+const CHAT_TIMEOUT_MS = 45000;
+const MAX_HISTORY_MESSAGES = 10;
+const MAX_HISTORY_MESSAGE_LENGTH = 700;
+const MAX_CONVERSATION_HISTORY_LENGTH = 8000;
+
+function buildConversationHistory(messages) {
+  const history = messages
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((message) => {
+      const speaker = message.sender === 'user' ? 'Usuário' : 'NaMão IA';
+      const text = String(message.text || '').replace(/\s+/g, ' ').trim();
+      const compactText = text.length > MAX_HISTORY_MESSAGE_LENGTH
+        ? `${text.slice(0, MAX_HISTORY_MESSAGE_LENGTH - 1)}…`
+        : text;
+      return `${speaker}: ${compactText}`;
+    })
+    .join('\n');
+
+  return history.slice(-MAX_CONVERSATION_HISTORY_LENGTH);
+}
+
+function getChatErrorMessage(error) {
+  if (error?.name === 'AbortError') return '';
+  const message = String(error?.message || '').trim();
+  if (/limite de mensagens gratuitas/i.test(message)) return message;
+  if (/failed to fetch|networkerror|load failed/i.test(message)) {
+    return 'Não foi possível conectar à IA. Verifique sua internet e tente novamente.';
+  }
+  return message || 'Não foi possível gerar uma resposta agora. Tente novamente.';
+}
 
 export default function ChatAI() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [expenses, setExpenses] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [activeChatId, setActiveChatIdState] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [chatList, setChatList] = useState([]);
   const [proStatus, setProStatus] = useState({ isPro: localStorage.getItem('namao_is_pro') === 'true', aiMessageCount: 0 });
   const messagesEndRef = useRef(null);
+  const activeChatIdRef = useRef(null);
+  const sendLockRef = useRef(false);
+  const requestControllerRef = useRef(null);
+  const requestSequenceRef = useRef(0);
   const { showConfirm, showProModal } = useDialog();
 
-  // Carregar despesas e status pro
+  // Carregar o status Pro.
   useEffect(() => {
-    async function load() {
-      const data = await getExpenses();
-      setExpenses(data);
-    }
-    load();
-    
     const unsubscribe = onAuthChange(async (user) => {
       if (user) {
         const pro = await getUserProStatus();
         setProStatus(pro);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const refreshChatList = useCallback(() => {
@@ -41,6 +71,7 @@ export default function ChatAI() {
 
   const startNewChat = useCallback(() => {
     const chat = createChat();
+    activeChatIdRef.current = chat.id;
     setActiveChatIdState(chat.id);
     setMessages(chat.messages);
     setActiveChatId(chat.id);
@@ -54,6 +85,7 @@ export default function ChatAI() {
     if (savedId) {
       const chat = getChatById(savedId);
       if (chat) {
+        activeChatIdRef.current = chat.id;
         setActiveChatIdState(chat.id);
         setMessages(chat.messages);
       } else {
@@ -68,6 +100,7 @@ export default function ChatAI() {
   const switchToChat = (chatId) => {
     const chat = getChatById(chatId);
     if (chat) {
+      activeChatIdRef.current = chat.id;
       setActiveChatIdState(chat.id);
       setMessages(chat.messages);
       setActiveChatId(chat.id);
@@ -100,8 +133,23 @@ export default function ChatAI() {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  useEffect(() => () => {
+    requestSequenceRef.current += 1;
+    requestControllerRef.current?.abort();
+  }, []);
+
+  const cancelChatResponse = useCallback(() => {
+    const controller = requestControllerRef.current;
+    if (!controller) return;
+    requestSequenceRef.current += 1;
+    requestControllerRef.current = null;
+    sendLockRef.current = false;
+    controller.abort();
+    setIsTyping(false);
+  }, []);
+
   const handleSend = async () => {
-    if (input.trim() === '') return;
+    if (input.trim() === '' || sendLockRef.current) return;
 
     if (!proStatus.isPro && proStatus.aiMessageCount >= 5) {
       showProModal();
@@ -110,6 +158,16 @@ export default function ChatAI() {
 
     const userText = input.trim();
     const userMsg = { id: Date.now(), text: userText, sender: 'user' };
+    const chatIdAtSend = activeChatIdRef.current;
+    if (!chatIdAtSend) return;
+    const conversationHistory = buildConversationHistory(messages);
+    const requestId = requestSequenceRef.current + 1;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+
+    requestSequenceRef.current = requestId;
+    requestControllerRef.current = controller;
+    sendLockRef.current = true;
     
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
@@ -117,41 +175,24 @@ export default function ChatAI() {
     setIsTyping(true);
 
     // Persistir mensagem do usuário
-    if (activeChatId) {
-      addMessageToChat(activeChatId, userMsg);
+    if (chatIdAtSend) {
+      addMessageToChat(chatIdAtSend, userMsg);
       refreshChatList();
     }
 
     try {
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth();
-      const currentYear = currentDate.getFullYear();
-      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-      const currentMonthExpenses = expenses.filter(item => {
-        const itemDate = new Date(item.date + 'T12:00:00');
-        return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
+      // A leitura acontece no envio para incluir até os lançamentos criados
+      // pouco antes da pergunta, mesmo que a tela do chat já estivesse aberta.
+      const [expensesData, budgetsData, goalsData] = await Promise.all([
+        getExpenses(),
+        getBudgets(),
+        getGoals(),
+      ]);
+      const contextData = buildFinancialContext({
+        expenses: expensesData,
+        budgets: budgetsData,
+        goals: goalsData,
       });
-
-      const toPay = currentMonthExpenses.filter(e => e.type === 'expense' && e.status === 'unpaid').reduce((a, b) => a + b.amount, 0);
-      
-      let balance = 0;
-      currentMonthExpenses.forEach(item => {
-        if (item.type === 'income') {
-          balance += item.amount;
-        } else if (item.status === 'paid') {
-          balance -= item.amount;
-        }
-      });
-
-      const contextData = `
-        Mês Atual: ${monthNames[currentMonth]} de ${currentYear}.
-        Resumo deste mês:
-        - Saldo Atual do Mês (Renda - Despesas Pagas): R$ ${balance.toFixed(2)}.
-        - Faturas a Pagar neste mês: R$ ${toPay.toFixed(2)}.
-        Aqui está a lista de movimentações DO MÊS ATUAL:
-        ${currentMonthExpenses.map(e => `- ${e.date}: ${e.description} | Categoria: ${e.category ? getCategory(e.category).label : 'Outros'} | R$ ${e.amount} | Tipo: ${e.type} | Status: ${e.status}`).join('\n')}
-      `;
       // Para Vercel, usamos caminho relativo. Em dev, o Vite Proxy lida com isso se configurado,
       // mas na Vercel o backend já roda no mesmo domínio do frontend.
       const apiUrl = import.meta.env.VITE_API_URL || '/api/chat';
@@ -171,7 +212,8 @@ export default function ChatAI() {
           'Content-Type': 'application/json',
           ...authHeader
         },
-        body: JSON.stringify({ userText, contextData }),
+        body: JSON.stringify({ userText, contextData, conversationHistory }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -180,13 +222,19 @@ export default function ChatAI() {
       }
 
       const data = await response.json();
-      const aiMsg = { id: Date.now() + 2, text: data.text, sender: 'ai' };
+      if (controller.signal.aborted || requestId !== requestSequenceRef.current) return;
+      if (typeof data?.text !== 'string' || !data.text.trim()) {
+        throw new Error('A IA não retornou uma resposta válida. Tente novamente.');
+      }
+      const aiMsg = { id: Date.now() + 2, text: data.text.trim(), sender: 'ai' };
 
-      setMessages(prev => [...prev, aiMsg]);
+      if (activeChatIdRef.current === chatIdAtSend) {
+        setMessages(prev => [...prev, aiMsg]);
+      }
       
       // Persistir resposta da IA
-      if (activeChatId) {
-        addMessageToChat(activeChatId, aiMsg);
+      if (chatIdAtSend) {
+        addMessageToChat(chatIdAtSend, aiMsg);
         refreshChatList();
       }
 
@@ -196,14 +244,28 @@ export default function ChatAI() {
       }
     } catch (error) {
       console.error(error);
-      const errorMsg = { id: Date.now() + 2, text: error.message || "Erro desconhecido.", sender: 'ai' };
-      setMessages(prev => [...prev, errorMsg]);
+      if (controller.signal.aborted || requestId !== requestSequenceRef.current) return;
+      const errorText = getChatErrorMessage(error);
+      if (/limite de mensagens gratuitas/i.test(errorText)) {
+        showProModal();
+        return;
+      }
+      const errorMsg = { id: Date.now() + 2, text: errorText, sender: 'ai', isError: true };
+      if (activeChatIdRef.current === chatIdAtSend) {
+        setMessages(prev => [...prev, errorMsg]);
+      }
       
-      if (activeChatId) {
-        addMessageToChat(activeChatId, errorMsg);
+      if (chatIdAtSend) {
+        addMessageToChat(chatIdAtSend, errorMsg);
+        refreshChatList();
       }
     } finally {
-      setIsTyping(false);
+      window.clearTimeout(timeoutId);
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null;
+        sendLockRef.current = false;
+        setIsTyping(false);
+      }
     }
   };
 
@@ -237,6 +299,7 @@ export default function ChatAI() {
         <div style={{ display: 'flex', gap: '8px' }}>
           <button 
             onClick={() => setShowHistory(!showHistory)}
+            disabled={isTyping}
             style={{ 
               background: showHistory ? 'var(--color-emerald-primary)' : 'transparent', 
               border: 'none', 
@@ -251,6 +314,7 @@ export default function ChatAI() {
           </button>
           <button 
             onClick={startNewChat}
+            disabled={isTyping}
             style={{ 
               background: 'transparent', 
               border: 'none', 
@@ -367,9 +431,9 @@ export default function ChatAI() {
             <div className="glass-card" style={{ 
               padding: '16px', 
               borderRadius: msg.sender === 'user' ? '24px 24px 4px 24px' : '24px 24px 24px 4px',
-              background: msg.sender === 'user' ? 'var(--color-emerald-primary)' : 'var(--bg-secondary)',
+              background: msg.sender === 'user' ? 'var(--color-emerald-primary)' : (msg.isError ? 'rgba(244, 63, 94, 0.08)' : 'var(--bg-secondary)'),
               color: msg.sender === 'user' ? '#fff' : 'var(--text-primary)',
-              border: msg.sender === 'user' ? 'none' : '1px solid var(--glass-border)',
+              border: msg.sender === 'user' ? 'none' : (msg.isError ? '1px solid rgba(244, 63, 94, 0.28)' : '1px solid var(--glass-border)'),
               boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)'
             }}>
               <p style={{ margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{msg.text}</p>
@@ -377,8 +441,11 @@ export default function ChatAI() {
           </div>
         ))}
         {isTyping && (
-          <div style={{ alignSelf: 'flex-start', marginLeft: '8px' }}>
+          <div style={{ alignSelf: 'flex-start', marginLeft: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>O Agente está digitando...</span>
+            <button onClick={cancelChatResponse} style={{ border: 'none', background: 'transparent', color: 'var(--color-crimson-primary)', fontSize: '0.8rem', padding: '4px', cursor: 'pointer' }}>
+              Cancelar
+            </button>
           </div>
         )}
         <div ref={messagesEndRef} />
