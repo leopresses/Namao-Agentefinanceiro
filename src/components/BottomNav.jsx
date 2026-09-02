@@ -30,29 +30,34 @@ const BottomNav = () => {
     <>
       {/* Overlay click fora */}
       {showMenu && (
-        <div 
+        <button
+          type="button"
+          aria-label="Fechar menu de lançamentos"
           onClick={() => setShowMenu(false)} 
-          style={{ position: 'fixed', inset: 0, zIndex: 90 }}
+          style={{ position: 'fixed', inset: 0, zIndex: 90, border: 'none', background: 'transparent', padding: 0 }}
         />
       )}
 
       {showMenu && (
-        <div className="action-menu" style={{ zIndex: 100 }}>
-          <button 
+        <div id="mobile-action-menu" className="action-menu" style={{ zIndex: 100 }}>
+          <button
+            type="button"
             onClick={handleVoiceEntry}
             className="btn-primary" 
             style={{ width: '100%', padding: '12px', boxShadow: 'none', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none' }}
           >
             <Mic size={20} /> <span>Lançar por Voz (IA)</span>
           </button>
-          <button 
+          <button
+            type="button"
             onClick={() => handleAdd('income')} 
             className="btn-primary" 
             style={{ width: '100%', padding: '12px', boxShadow: 'none' }}
           >
             <ArrowUpCircle size={20} /> <span>Nova Renda</span>
           </button>
-          <button 
+          <button
+            type="button"
             onClick={() => handleAdd('expense')} 
             className="btn-danger" 
             style={{ width: '100%', padding: '12px', boxShadow: 'none' }}
@@ -74,7 +79,9 @@ const BottomNav = () => {
             </p>
           </div>
           
-          <button 
+          <button
+            type="button"
+            aria-label="Cancelar lançamento por voz"
             onClick={cancelVoice} 
             style={{ marginTop: '32px', background: 'var(--color-crimson-primary)', border: 'none', borderRadius: '50%', padding: '16px', color: 'white', cursor: 'pointer', boxShadow: '0 8px 16px rgba(244, 63, 94, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
@@ -96,21 +103,28 @@ const BottomNav = () => {
         padding: '12px 0',
         zIndex: 100,
       }}>
-        <NavLink to="/" style={navStyle}>
+        <NavLink to="/" aria-label="Dashboard" style={navStyle}>
           <Home size={24} />
         </NavLink>
-        <NavLink to="/report" style={navStyle}>
+        <NavLink to="/report" aria-label="Relatórios" style={navStyle}>
           <FileText size={24} />
         </NavLink>
         
-        <div onClick={toggleMenu} style={{ ...navStyle, ...mainActionStyle(showMenu) }}>
+        <button
+          type="button"
+          aria-label={showMenu ? 'Fechar menu de lançamentos' : 'Abrir menu de lançamentos'}
+          aria-expanded={showMenu}
+          aria-controls="mobile-action-menu"
+          onClick={toggleMenu}
+          style={{ ...mainActionStyle(showMenu), border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
           <Plus size={32} color="#FFF" style={{ transform: showMenu ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s ease' }} />
-        </div>
+        </button>
 
-        <NavLink to="/chat" style={navStyle}>
+        <NavLink to="/chat" aria-label="NaMão IA" style={navStyle}>
           <Bot size={24} />
         </NavLink>
-        <NavLink to="/profile" style={navStyle}>
+        <NavLink to="/profile" aria-label="Perfil" style={navStyle}>
           <User size={24} />
         </NavLink>
       </nav>

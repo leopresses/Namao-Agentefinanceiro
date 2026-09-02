@@ -68,7 +68,7 @@ const Sidebar = () => {
       {/* Floating Action Button - Top Right */}
       <div style={{ position: 'fixed', top: '24px', right: '32px', zIndex: 100 }}>
         {showDesktopMenu && (
-          <div className="action-menu glass" style={{ 
+          <div id="desktop-action-menu" className="action-menu glass" style={{
             position: 'absolute', 
             top: '70px', 
             right: '0', 
@@ -81,22 +81,26 @@ const Sidebar = () => {
             borderRadius: '16px',
             width: '200px'
           }}>
-            <button 
+            <button
+              type="button"
               onClick={handleVoiceEntry}
               className="btn-primary" 
               style={{ width: '100%', padding: '12px', boxShadow: 'none', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none' }}
             >
               <Mic size={20} /> <span>Lançar por Voz (IA)</span>
             </button>
-            <button onClick={() => handleAdd('income')} className="btn-primary" style={{ width: '100%', padding: '12px', boxShadow: 'none' }}>
+            <button type="button" onClick={() => handleAdd('income')} className="btn-primary" style={{ width: '100%', padding: '12px', boxShadow: 'none' }}>
               <ArrowUpCircle size={20} /> <span>Nova Renda</span>
             </button>
-            <button onClick={() => handleAdd('expense')} className="btn-danger" style={{ width: '100%', padding: '12px', boxShadow: 'none' }}>
+            <button type="button" onClick={() => handleAdd('expense')} className="btn-danger" style={{ width: '100%', padding: '12px', boxShadow: 'none' }}>
               <ArrowDownCircle size={20} /> <span>Nova Despesa</span>
             </button>
           </div>
         )}
-        <button 
+        <button
+          type="button"
+          aria-expanded={showDesktopMenu}
+          aria-controls="desktop-action-menu"
           onClick={toggleMenu} 
           className="btn-primary"
           style={{ 
@@ -115,7 +119,7 @@ const Sidebar = () => {
       
       {/* Overlay para fechar o menu superior */}
       {showDesktopMenu && (
-        <div onClick={() => setShowDesktopMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+        <button type="button" aria-label="Fechar menu de lançamentos" onClick={() => setShowDesktopMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 90, border: 'none', background: 'transparent', padding: 0 }} />
       )}
 
       {/* Modal de Lançamento por Voz */}
@@ -131,7 +135,9 @@ const Sidebar = () => {
             </p>
           </div>
           
-          <button 
+          <button
+            type="button"
+            aria-label="Cancelar lançamento por voz"
             onClick={cancelVoice} 
             style={{ marginTop: '32px', background: 'var(--color-crimson-primary)', border: 'none', borderRadius: '50%', padding: '16px', color: 'white', cursor: 'pointer', boxShadow: '0 8px 16px rgba(244, 63, 94, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >

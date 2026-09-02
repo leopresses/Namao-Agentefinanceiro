@@ -256,13 +256,13 @@ export default function Dashboard() {
 
       {/* Seletor de Mês */}
       <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', marginBottom: '24px' }}>
-        <button onClick={() => changeMonth(-1)} style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
+        <button type="button" aria-label="Mês anterior" onClick={() => changeMonth(-1)} style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
           <ChevronLeft size={24} />
         </button>
         <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0, fontWeight: '600' }}>
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h3>
-        <button onClick={() => changeMonth(1)} style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
+        <button type="button" aria-label="Próximo mês" onClick={() => changeMonth(1)} style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
           <ChevronRight size={24} />
         </button>
       </div>

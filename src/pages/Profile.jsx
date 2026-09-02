@@ -437,9 +437,10 @@ export default function Profile() {
           📈 Planejamento
         </h3>
         
-        <div 
+        <button
+          type="button"
           onClick={() => navigate('/budgets')}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--glass-border)', cursor: 'pointer' }}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--glass-border)', cursor: 'pointer', background: 'transparent', color: 'inherit', textAlign: 'left' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -451,11 +452,12 @@ export default function Profile() {
             </div>
           </div>
           <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
-        </div>
+        </button>
 
-        <div 
+        <button
+          type="button"
           onClick={() => navigate('/goals')}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', cursor: 'pointer' }}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', cursor: 'pointer', background: 'transparent', color: 'inherit', textAlign: 'left' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -467,7 +469,7 @@ export default function Profile() {
             </div>
           </div>
           <span style={{ color: 'var(--text-tertiary)' }}>{'>'}</span>
-        </div>
+        </button>
       </div>
 
       {/* Aparência e Segurança */}
@@ -476,12 +478,14 @@ export default function Profile() {
           ⚙️ Ajustes do App
         </h3>
         
-        <div 
+        <button
+          type="button"
+          aria-pressed={theme === 'dark'}
           onClick={toggleTheme}
           style={{ 
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+            width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '16px', background: 'var(--bg-secondary)', borderRadius: '16px', 
-            marginBottom: '12px', cursor: 'pointer', border: '1px solid var(--glass-border)' 
+            marginBottom: '12px', cursor: 'pointer', border: '1px solid var(--glass-border)', color: 'inherit', textAlign: 'left'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -502,14 +506,16 @@ export default function Profile() {
               transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
             }} />
           </div>
-        </div>
+        </button>
 
-        <div 
+        <button
+          type="button"
+          aria-pressed={biometricEnabled}
           onClick={toggleBiometric}
           style={{ 
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+            width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '16px', background: 'var(--bg-secondary)', borderRadius: '16px', 
-            cursor: 'pointer', border: '1px solid var(--glass-border)' 
+            cursor: 'pointer', border: '1px solid var(--glass-border)', color: 'inherit', textAlign: 'left'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -530,7 +536,7 @@ export default function Profile() {
               transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
             }} />
           </div>
-        </div>
+        </button>
 
         <button
           type="button"
