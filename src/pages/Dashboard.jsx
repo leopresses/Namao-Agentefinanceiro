@@ -3,7 +3,7 @@ import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { getCategory } from '../utils/categories';
-import { getUserProStatus, onAuthChange } from '../services/firebase';
+import { getCachedProStatus, getUserProStatus, onAuthChange } from '../services/firebase';
 import { useDialog } from '../contexts/DialogContext';
 import { getGoalProgress } from '../utils/goals';
 import {
@@ -12,23 +12,25 @@ import {
   getProNotificationsEnabled,
 } from '../utils/proNotifications';
 import { shiftMonth } from '../utils/advancedReports';
+import { usePageState } from '../contexts/NavigationContext';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [allExpenses, setAllExpenses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [displayedExpenses, setDisplayedExpenses] = useState([]);
   const [balance, setBalance] = useState(0);
   const [toPay, setToPay] = useState(0);
   const [budgets, setBudgets] = useState({});
   const [categoryTotals, setCategoryTotals] = useState({});
   const [goals, setGoals] = useState([]);
-  const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
+  const [isPro, setIsPro] = useState(getCachedProStatus);
   const handledPaymentResult = useRef(null);
   const { showAlert, showProModal } = useDialog();
   
   // Date tracking for Month Filter
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = usePageState('month', () => new Date());
 
   useEffect(() => {
     async function loadData() {
@@ -40,6 +42,7 @@ export default function Dashboard() {
       setBudgets(bData);
       const gData = await getGoals();
       setGoals(gData);
+      setIsLoading(false);
     }
     loadData();
 
@@ -67,7 +70,7 @@ export default function Dashboard() {
     const params = new URLSearchParams(location.search);
     params.delete('payment');
     const cleanSearch = params.toString();
-    window.history.replaceState(null, '', `${location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`);
+    window.history.replaceState(window.history.state, '', `${location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`);
 
     let cancelled = false;
     const notifyPaymentResult = async () => {
@@ -218,7 +221,7 @@ export default function Dashboard() {
   }, [budgetAlerts, currentDate, isPro, todayStr, tomorrowStr, urgentItems]);
 
   return (
-    <div className="animate-fade-up">
+    <div className="animate-fade-up" data-navigation-loading={isLoading}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
         <h1 className="app-title" style={{ margin: 0 }}>
           <img src="/logo.png?v=20260901" alt="Logo do NaMão" className="logo-icon" />

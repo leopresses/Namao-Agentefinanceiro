@@ -1,14 +1,18 @@
 // Serviço de persistência de conversas com a IA
+import { accountKey } from './accountScope';
+
 const CHATS_KEY = 'namao_chats';
 const ACTIVE_CHAT_KEY = 'namao_active_chat';
+const chatsKey = () => accountKey(CHATS_KEY);
+const activeChatKey = () => accountKey(ACTIVE_CHAT_KEY);
 
 function getAll() {
-  const data = localStorage.getItem(CHATS_KEY);
+  const data = localStorage.getItem(chatsKey());
   return data ? JSON.parse(data) : [];
 }
 
 function saveAll(chats) {
-  localStorage.setItem(CHATS_KEY, JSON.stringify(chats));
+  localStorage.setItem(chatsKey(), JSON.stringify(chats));
   // As conversas fazem parte do backup PRO. Avise o sincronizador sempre
   // que o histórico mudar para evitar que mensagens recentes fiquem só
   // neste dispositivo.
@@ -38,11 +42,11 @@ export function getChatById(id) {
 }
 
 export function getActiveChatId() {
-  return localStorage.getItem(ACTIVE_CHAT_KEY);
+  return localStorage.getItem(activeChatKey());
 }
 
 export function setActiveChatId(id) {
-  localStorage.setItem(ACTIVE_CHAT_KEY, id);
+  localStorage.setItem(activeChatKey(), id);
 }
 
 export function createChat() {
@@ -84,12 +88,12 @@ export function deleteChat(chatId) {
 
   // Se o chat ativo for deletado, limpar
   if (getActiveChatId() === chatId) {
-    localStorage.removeItem(ACTIVE_CHAT_KEY);
+    localStorage.removeItem(activeChatKey());
   }
 }
 
 export function clearAllChats() {
-  localStorage.removeItem(CHATS_KEY);
-  localStorage.removeItem(ACTIVE_CHAT_KEY);
+  localStorage.removeItem(chatsKey());
+  localStorage.removeItem(activeChatKey());
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }

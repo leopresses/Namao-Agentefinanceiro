@@ -1,11 +1,15 @@
 import { get, set, update } from 'idb-keyval';
+import { accountKey } from './accountScope';
 
 const EXPENSES_KEY = 'namao_expenses';
 const BUDGETS_KEY = 'namao_budgets';
 const GOALS_KEY = 'namao_goals';
+const expensesKey = () => accountKey(EXPENSES_KEY);
+const budgetsKey = () => accountKey(BUDGETS_KEY);
+const goalsKey = () => accountKey(GOALS_KEY);
 
 export async function getExpenses() {
-  const data = await get(EXPENSES_KEY);
+  const data = await get(expensesKey());
   return data || [];
 }
 
@@ -32,7 +36,7 @@ export async function addExpenses(expenses) {
 
   if (newExpenses.length === 0) return [];
 
-  await update(EXPENSES_KEY, (val) => {
+  await update(expensesKey(), (val) => {
     const list = val || [];
     return [...list, ...newExpenses];
   });
@@ -43,7 +47,7 @@ export async function addExpenses(expenses) {
 
 export async function updateExpense(updatedExpense) {
   let wasUpdated = false;
-  await update(EXPENSES_KEY, (val) => {
+  await update(expensesKey(), (val) => {
     const list = val || [];
     return list.map((expense) => {
       if (expense.id !== updatedExpense.id) return expense;
@@ -62,7 +66,7 @@ export async function updateExpense(updatedExpense) {
 
 export async function deleteExpense(id) {
   let wasDeleted = false;
-  await update(EXPENSES_KEY, (val) => {
+  await update(expensesKey(), (val) => {
     const list = val || [];
     const nextList = list.filter((expense) => expense.id !== id);
     wasDeleted = nextList.length !== list.length;
@@ -76,7 +80,7 @@ export async function deleteExpense(id) {
 
 export async function deleteExpenseGroup(groupId) {
   let deletedCount = 0;
-  await update(EXPENSES_KEY, (val) => {
+  await update(expensesKey(), (val) => {
     const list = val || [];
     const nextList = list.filter((expense) => expense.groupId !== groupId);
     deletedCount = list.length - nextList.length;
@@ -90,7 +94,7 @@ export async function deleteExpenseGroup(groupId) {
 }
 
 export async function updateExpenseGroup(groupId, updates) {
-  await update(EXPENSES_KEY, (val) => {
+  await update(expensesKey(), (val) => {
     const list = val || [];
     return list.map(e => {
       if (e.groupId !== groupId) return e;
@@ -102,26 +106,26 @@ export async function updateExpenseGroup(groupId, updates) {
 }
 
 export async function clearAllExpenses() {
-  await set(EXPENSES_KEY, []);
+  await set(expensesKey(), []);
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function clearAllFinancialData() {
   await Promise.all([
-    set(EXPENSES_KEY, []),
-    set(BUDGETS_KEY, {}),
-    set(GOALS_KEY, []),
+    set(expensesKey(), []),
+    set(budgetsKey(), {}),
+    set(goalsKey(), []),
   ]);
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function getBudgets() {
-  const data = await get(BUDGETS_KEY);
+  const data = await get(budgetsKey());
   return data || {};
 }
 
 export async function saveBudget(categoryId, limitAmount) {
-  await update(BUDGETS_KEY, (val) => {
+  await update(budgetsKey(), (val) => {
     const budgets = { ...(val || {}) };
     if (limitAmount === null) {
       delete budgets[categoryId];
@@ -135,7 +139,7 @@ export async function saveBudget(categoryId, limitAmount) {
 
 // Goals functions
 export async function getGoals() {
-  const data = await get(GOALS_KEY);
+  const data = await get(goalsKey());
   return data || [];
 }
 
@@ -145,7 +149,7 @@ export async function addGoal(goal) {
     id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
     createdAt: new Date().toISOString()
   };
-  await update(GOALS_KEY, (val) => {
+  await update(goalsKey(), (val) => {
     const goals = val || [];
     return [...goals, newGoal];
   });
@@ -153,7 +157,7 @@ export async function addGoal(goal) {
 }
 
 export async function updateGoal(id, updates) {
-  await update(GOALS_KEY, (val) => {
+  await update(goalsKey(), (val) => {
     const goals = val || [];
     return goals.map(g => g.id === id ? { ...g, ...updates } : g);
   });
@@ -161,7 +165,7 @@ export async function updateGoal(id, updates) {
 }
 
 export async function deleteGoal(id) {
-  await update(GOALS_KEY, (val) => {
+  await update(goalsKey(), (val) => {
     const goals = val || [];
     return goals.filter(g => g.id !== id);
   });
@@ -170,25 +174,25 @@ export async function deleteGoal(id) {
 
 // Backup functions
 export async function setExpensesData(data) {
-  await set(EXPENSES_KEY, data || []);
+  await set(expensesKey(), data || []);
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function setBudgetsData(data) {
-  await set(BUDGETS_KEY, data || {});
+  await set(budgetsKey(), data || {});
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function setGoalsData(data) {
-  await set(GOALS_KEY, data || []);
+  await set(goalsKey(), data || []);
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }
 
 export async function restoreCloudData({ expenses, budgets, goals }) {
   await Promise.all([
-    set(EXPENSES_KEY, expenses || []),
-    set(BUDGETS_KEY, budgets || {}),
-    set(GOALS_KEY, goals || [])
+    set(expensesKey(), expenses || []),
+    set(budgetsKey(), budgets || {}),
+    set(goalsKey(), goals || [])
   ]);
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }

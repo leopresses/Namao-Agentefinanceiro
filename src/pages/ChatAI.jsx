@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
-import { getIdToken, getUserProStatus, onAuthChange } from '../services/firebase';
+import { getCachedProStatus, getIdToken, getUserProStatus, onAuthChange } from '../services/firebase';
 import { MessageSquarePlus, History, Trash2, X, Sparkles } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { buildFinancialContext } from '../utils/financialContext';
@@ -39,12 +39,14 @@ function getChatErrorMessage(error) {
 
 export default function ChatAI() {
   const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedMessages = useRef(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [activeChatId, setActiveChatIdState] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [chatList, setChatList] = useState([]);
-  const [proStatus, setProStatus] = useState({ isPro: localStorage.getItem('namao_is_pro') === 'true', aiMessageCount: 0 });
+  const [proStatus, setProStatus] = useState({ isPro: getCachedProStatus(), aiMessageCount: 0 });
   const messagesEndRef = useRef(null);
   const activeChatIdRef = useRef(null);
   const sendLockRef = useRef(false);
@@ -95,6 +97,7 @@ export default function ChatAI() {
       startNewChat();
     }
     refreshChatList();
+    setIsLoading(false);
   }, [startNewChat, refreshChatList]);
 
   const switchToChat = (chatId) => {
@@ -130,8 +133,12 @@ export default function ChatAI() {
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    if (isLoading) return;
+    // A navegação restaura a posição na abertura. Só mensagens novas devem
+    // levar a conversa ao fim enquanto esta tela já está aberta.
+    if (hasLoadedMessages.current) scrollToBottom();
+    hasLoadedMessages.current = true;
+  }, [messages, isTyping, isLoading]);
 
   useEffect(() => () => {
     requestSequenceRef.current += 1;
@@ -292,7 +299,7 @@ export default function ChatAI() {
   };
 
   return (
-    <div className="chat-container animate-fade-up">
+    <div className="chat-container animate-fade-up" data-navigation-loading={isLoading}>
       {/* Header */}
       <header className="app-header glass" style={{ marginBottom: '16px', marginTop: '32px', position: 'relative' }}>
         <h1 className="app-title" style={{ fontSize: '1.2rem' }}>NaMão IA</h1>
@@ -354,7 +361,7 @@ export default function ChatAI() {
             </button>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div data-navigation-scroll="chat-history" style={{ flex: 1, overflowY: 'auto' }}>
             {chatList.length === 0 ? (
               <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginTop: '40px' }}>
                 Nenhuma conversa encontrada.
@@ -417,7 +424,7 @@ export default function ChatAI() {
       )}
 
       {/* Área de Mensagens */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '16px' }}>
+      <div data-navigation-scroll="chat-messages" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '16px' }}>
         {messages.map(msg => (
           <div key={msg.id} style={{ 
             alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', 
@@ -448,7 +455,7 @@ export default function ChatAI() {
             </button>
           </div>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} data-navigation-scroll-end />
       </div>
 
       {/* Input de Mensagem */}

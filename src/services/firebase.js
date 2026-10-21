@@ -1,7 +1,7 @@
 // Firebase - Configuração protegida via variáveis de ambiente do Vite
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, deleteDoc, runTransaction } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -91,14 +91,39 @@ export function onAuthChange(callback) {
 // =============================================
 
 // SEGURANÇA: userId vem de auth.currentUser.uid, NUNCA do localStorage
-export const saveCloudBackup = async (expensesData, chatsData, budgetsData, goalsData) => {
+export class BackupConflictError extends Error {
+  constructor(currentRevision) {
+    super('A cópia na nuvem mudou desde o último backup deste dispositivo.');
+    this.name = 'BackupConflictError';
+    this.currentRevision = currentRevision;
+  }
+}
+
+export function getCachedProStatus() {
+  const uid = getSecureUserId();
+  return uid ? localStorage.getItem(`namao_is_pro:${uid}`) === 'true' : false;
+}
+
+function getBackupRevision(data, source = 'private') {
+  if (!data) return null;
+  return data.backupRevision || data.lastBackup || `legacy-${source}`;
+}
+
+function hasLegacyFinancialData(data) {
+  return !!(data?.expenses || data?.chats || data?.budgets || data?.goals);
+}
+
+export const saveCloudBackup = async (expensesData, chatsData, budgetsData, goalsData, expectedRevision = null) => {
   const uid = getSecureUserId();
   if (!uid) throw new Error("Usuário não autenticado");
 
   const backupRef = doc(db, 'users', uid, 'private', 'backup');
+  const legacyRef = doc(db, 'users', uid);
+  const backupRevision = crypto.randomUUID();
   const payload = {
     expenses: expensesData || [],
     lastBackup: new Date().toISOString(),
+    backupRevision,
   };
   if (chatsData !== undefined) {
     payload.chats = chatsData;
@@ -115,7 +140,16 @@ export const saveCloudBackup = async (expensesData, chatsData, budgetsData, goal
     throw new Error('O backup ficou grande demais. Exclua conversas antigas e tente novamente.');
   }
 
-  await setDoc(backupRef, payload, { merge: true });
+  await runTransaction(db, async (transaction) => {
+    const current = await transaction.get(backupRef);
+    const legacy = current.exists() ? null : await transaction.get(legacyRef);
+    const currentRevision = current.exists()
+      ? getBackupRevision(current.data())
+      : hasLegacyFinancialData(legacy?.data()) ? getBackupRevision(legacy.data(), 'root') : null;
+    if (currentRevision !== expectedRevision) throw new BackupConflictError(currentRevision);
+    transaction.set(backupRef, payload, { merge: true });
+  });
+  return backupRevision;
 };
 
 export const loadCloudBackup = async () => {
@@ -131,7 +165,8 @@ export const loadCloudBackup = async () => {
       expenses: data.expenses || [],
       chats: data.chats || null,
       budgets: data.budgets || {},
-      goals: data.goals || []
+      goals: data.goals || [],
+      revision: getBackupRevision(data),
     };
   }
 
@@ -144,12 +179,13 @@ export const loadCloudBackup = async () => {
         expenses: legacy.expenses || [],
         chats: legacy.chats || null,
         budgets: legacy.budgets || {},
-        goals: legacy.goals || []
+        goals: legacy.goals || [],
+        revision: getBackupRevision(legacy, 'root'),
       };
     }
   }
 
-  return { expenses: [], chats: null, budgets: {}, goals: [] };
+  return { expenses: [], chats: null, budgets: {}, goals: [], revision: null };
 };
 
 export const deleteCloudBackup = async () => {
@@ -190,7 +226,7 @@ export const getUserProStatus = async () => {
     // acesso que já havia sido concedido.
     const hasLegacyProAccess = data.isPro === true && !data.planType && !data.proExpiresAt;
     const isPro = !!data.isPro && (isAdmin || hasUnlimitedManualAccess || hasLegacyProAccess || !!expiresAt && expiresAt.getTime() > Date.now());
-    localStorage.setItem('namao_is_pro', isPro ? 'true' : 'false');
+    localStorage.setItem(`namao_is_pro:${uid}`, isPro ? 'true' : 'false');
 
     return {
       isPro,
@@ -198,6 +234,6 @@ export const getUserProStatus = async () => {
     };
   }
   
-  localStorage.setItem('namao_is_pro', 'false');
+  localStorage.setItem(`namao_is_pro:${uid}`, 'false');
   return { isPro: false, aiMessageCount: 0 };
 };

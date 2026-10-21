@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '../contexts/NavigationContext';
 import { getBudgets, saveBudget } from '../services/db';
 import { CATEGORIES } from '../utils/categories';
 import { useDialog } from '../contexts/DialogContext';
 import { parseBrazilianCurrency } from '../utils/currency';
 
 export default function Budgets() {
-  const navigate = useNavigate();
+  const goBack = useGoBack();
   const [budgets, setBudgets] = useState({});
   const { showAlert, showPrompt } = useDialog();
 
@@ -52,7 +52,7 @@ export default function Budgets() {
   return (
     <div className="animate-fade-up">
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <div className="btn-icon" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }}>{'<'}</div>
+        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack} style={{ cursor: 'pointer' }}>{'<'}</button>
         <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', textAlign: 'center', flex: 1, marginRight: '48px' }}>
           Limites de Orçamento
         </h1>

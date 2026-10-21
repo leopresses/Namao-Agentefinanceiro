@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
-import { logoutGoogle, saveCloudBackup, loadCloudBackup, deleteCloudBackup, getUserProStatus, onAuthChange } from '../services/firebase';
+import { BackupConflictError, getCachedProStatus, logoutGoogle, saveCloudBackup, loadCloudBackup, deleteCloudBackup, getUserProStatus, onAuthChange } from '../services/firebase';
 import { getExpenses, getBudgets, getGoals, restoreCloudData, clearAllFinancialData } from '../services/db';
 import { clearAllChats, getAllChats, setAllChats } from '../services/chatDb';
+import { ensureLocalAccount, getAccountSetting, hasUnclaimedLegacyData, recoverLegacyData, removeAccountSetting, setAccountSetting } from '../services/accountScope';
 import { BellRing, CloudUpload, CloudDownload, LogOut, User, Moon, Sun, Lock, Star, Smartphone, CircleHelp, ShieldCheck } from 'lucide-react';
 import AdminPanel from '../components/AdminPanel';
 import { applyTheme, getStoredTheme } from '../utils/theme';
@@ -19,19 +20,22 @@ export default function Profile() {
   const navigate = useNavigate();
   const { showAlert, showConfirm } = useDialog();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [lastBackup, setLastBackup] = useState(localStorage.getItem('namao_last_sync_time'));
+  const [lastBackup, setLastBackup] = useState(() => getAccountSetting('namao_last_sync_time'));
   const [theme, setTheme] = useState(getStoredTheme);
   const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('namao_biometric') === 'true');
-  const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
-  const [cloudBackupProtected, setCloudBackupProtected] = useState(localStorage.getItem('namao_cloud_backup_protected') === 'true');
+  const [isPro, setIsPro] = useState(getCachedProStatus);
+  const [cloudBackupProtected, setCloudBackupProtected] = useState(() => getAccountSetting('namao_cloud_backup_protected') === 'true');
+  const [backupConflict, setBackupConflict] = useState(() => getAccountSetting('namao_backup_conflict') === 'true');
+  const [legacyAvailable, setLegacyAvailable] = useState(false);
   const [proNotificationsEnabled, setProNotificationsEnabledState] = useState(getProNotificationsEnabled);
   const { showProModal } = useDialog();
 
   React.useEffect(() => {
     const handleSyncCompleted = () => {
-      setLastBackup(localStorage.getItem('namao_last_sync_time'));
+      setLastBackup(getAccountSetting('namao_last_sync_time'));
     };
     window.addEventListener('namao_sync_completed', handleSyncCompleted);
+    hasUnclaimedLegacyData().then(setLegacyAvailable).catch(console.error);
     
     // Load Pro Status exactly when auth is ready
     const unsubscribe = onAuthChange(async (user) => {
@@ -68,7 +72,6 @@ export default function Profile() {
       localStorage.removeItem('namao_user_uid');
       localStorage.removeItem('namao_user_name');
       localStorage.removeItem('namao_user_photo');
-      localStorage.removeItem('namao_is_pro');
       localStorage.removeItem('namao_local_test_user');
       navigate('/login');
     }
@@ -86,15 +89,33 @@ export default function Profile() {
     }
     setIsSyncing(true);
     try {
+      await ensureLocalAccount();
       const expenses = await getExpenses();
       const chats = getAllChats();
       const budgets = await getBudgets();
       const goals = await getGoals();
-      await saveCloudBackup(expenses, chats, budgets, goals);
+      let revision;
+      try {
+        revision = await saveCloudBackup(
+          expenses, chats, budgets, goals, getAccountSetting('namao_backup_revision')
+        );
+      } catch (error) {
+        if (!(error instanceof BackupConflictError)) throw error;
+        const replace = await showConfirm(
+          'Backup mais recente na nuvem',
+          'A cópia na nuvem mudou desde a última sincronização deste dispositivo. Substituí-la pode apagar lançamentos feitos em outro aparelho. Deseja substituir mesmo assim?'
+        );
+        if (!replace) return;
+        revision = await saveCloudBackup(expenses, chats, budgets, goals, error.currentRevision);
+      }
       const now = new Date().toISOString();
-      localStorage.removeItem('namao_cloud_backup_protected');
-      localStorage.setItem('namao_last_sync_time', now);
+      setAccountSetting('namao_backup_revision', revision);
+      removeAccountSetting('namao_cloud_backup_protected');
+      removeAccountSetting('namao_backup_conflict');
+      setAccountSetting('namao_pending_sync', 'false');
+      setAccountSetting('namao_last_sync_time', now);
       setCloudBackupProtected(false);
+      setBackupConflict(false);
       setLastBackup(now);
       showAlert('Sucesso', 'Seus dados, orçamentos, metas e conversas com a IA foram salvos na nuvem do Google!');
     } catch (err) {
@@ -126,22 +147,27 @@ export default function Profile() {
         const hasBudgets = Object.keys(cloudData.budgets || {}).length > 0;
         const hasGoals = (cloudData.goals || []).length > 0;
         if (cloudData.expenses.length > 0 || cloudData.chats || hasBudgets || hasGoals) {
+          setAccountSetting('namao_cloud_backup_protected', 'true');
           await restoreCloudData({
             expenses: cloudData.expenses,
             budgets: cloudData.budgets,
             goals: cloudData.goals
           });
-          if (cloudData.chats) {
-            setAllChats(cloudData.chats);
-          }
-          localStorage.removeItem('namao_cloud_backup_protected');
+          setAllChats(cloudData.chats || []);
+          if (cloudData.revision) setAccountSetting('namao_backup_revision', cloudData.revision);
+          else removeAccountSetting('namao_backup_revision');
+          removeAccountSetting('namao_backup_conflict');
+          setAccountSetting('namao_pending_sync', 'false');
+          removeAccountSetting('namao_cloud_backup_protected');
           setCloudBackupProtected(false);
+          setBackupConflict(false);
           showAlert('Sucesso', 'Dados, orçamentos, metas e conversas restaurados da nuvem com sucesso!');
         } else {
           showAlert('Aviso', 'Não há dados salvos na sua nuvem ainda.');
         }
       } catch (err) {
         console.error(err);
+        setCloudBackupProtected(getAccountSetting('namao_cloud_backup_protected') === 'true');
         showAlert('Erro', 'Ocorreu um erro ao restaurar os dados.');
       } finally {
         setIsSyncing(false);
@@ -169,10 +195,13 @@ export default function Profile() {
     setIsSyncing(true);
     try {
       await deleteCloudBackup();
-      localStorage.setItem('namao_cloud_backup_protected', 'true');
-      localStorage.removeItem('namao_last_sync_time');
-      localStorage.setItem('namao_pending_sync', 'false');
+      setAccountSetting('namao_cloud_backup_protected', 'true');
+      removeAccountSetting('namao_last_sync_time');
+      removeAccountSetting('namao_backup_revision');
+      removeAccountSetting('namao_backup_conflict');
+      setAccountSetting('namao_pending_sync', 'false');
       setCloudBackupProtected(true);
+      setBackupConflict(false);
       setLastBackup(null);
       showAlert('Backup excluído', 'A cópia em nuvem foi excluída. Seus dados locais continuam neste dispositivo.');
     } catch (err) {
@@ -197,8 +226,8 @@ export default function Profile() {
     if (!confirmed) return;
 
     if (preservesCloud) {
-      localStorage.setItem('namao_cloud_backup_protected', 'true');
-      localStorage.setItem('namao_pending_sync', 'false');
+      setAccountSetting('namao_cloud_backup_protected', 'true');
+      setAccountSetting('namao_pending_sync', 'false');
       setCloudBackupProtected(true);
     }
 
@@ -206,6 +235,23 @@ export default function Profile() {
     clearAllChats();
     showAlert('Sucesso', 'Todos os dados locais foram apagados.');
     setTimeout(() => window.location.reload(), 1500);
+  };
+
+  const handleRecoverLegacyData = async () => {
+    const confirmed = await showConfirm(
+      'Recuperar dados antigos',
+      'Este navegador guarda dados de uma versão anterior sem identificação de conta. Importe-os somente se forem seus. A sincronização ficará pausada até você decidir restaurar ou substituir o backup na nuvem. Deseja importar?'
+    );
+    if (!confirmed) return;
+    try {
+      await recoverLegacyData();
+      setLegacyAvailable(false);
+      setCloudBackupProtected(true);
+      showAlert('Dados recuperados', 'Os dados foram associados a esta conta neste dispositivo.');
+      window.setTimeout(() => window.location.reload(), 1200);
+    } catch (error) {
+      showAlert('Não foi possível recuperar', error.message);
+    }
   };
 
   const toggleTheme = () => {
@@ -391,6 +437,11 @@ export default function Profile() {
               A sincronização automática está pausada para preservar sua cópia em nuvem. Faça um backup manual quando quiser substituí-la.
             </p>
           )}
+          {backupConflict && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--color-crimson-dark)', margin: '-12px 0 18px' }}>
+              Há dados mais recentes na nuvem. Restaure a cópia da nuvem ou escolha fazer um backup manual para decidir se deseja substituí-la.
+            </p>
+          )}
 
           <button 
             onClick={handleCloudBackup} 
@@ -427,6 +478,18 @@ export default function Profile() {
             }}
           >
             Excluir Backup da Nuvem
+          </button>
+        </div>
+      )}
+
+      {legacyAvailable && (
+        <div className="glass-card" style={{ marginBottom: '24px' }}>
+          <h3 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>Dados de versão anterior</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+            Encontramos dados antigos neste navegador sem uma conta identificada. Eles não serão exibidos ou enviados à nuvem automaticamente.
+          </p>
+          <button type="button" className="btn-primary" onClick={handleRecoverLegacyData}>
+            Recuperar meus dados antigos
           </button>
         </div>
       )}

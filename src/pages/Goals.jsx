@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { getGoals } from '../services/db';
 import { Target, Plus } from 'lucide-react';
 import { formatGoalDeadline, getGoalProgress } from '../utils/goals';
+import { useGoBack } from '../contexts/NavigationContext';
 
 export default function Goals() {
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [goals, setGoals] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -14,6 +17,7 @@ export default function Goals() {
       // Ordena por data de criação
       data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       setGoals(data);
+      setIsLoading(false);
     }
     load();
 
@@ -22,9 +26,9 @@ export default function Goals() {
   }, []);
 
   return (
-    <div className="animate-fade-up">
+    <div className="animate-fade-up" data-navigation-loading={isLoading}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px', display: 'flex', alignItems: 'center' }}>
-        <div className="btn-icon" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }}>{'<'}</div>
+        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack} style={{ cursor: 'pointer' }}>{'<'}</button>
         <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', textAlign: 'center', flex: 1, marginRight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
           <Target size={20} color="var(--color-emerald-primary)" /> Metas
         </h1>

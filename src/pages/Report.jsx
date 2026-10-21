@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
-import { getUserProStatus, onAuthChange } from '../services/firebase';
+import { getCachedProStatus, getUserProStatus, onAuthChange } from '../services/firebase';
 import { CalendarClock, ChevronLeft, ChevronRight, Lock, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
 import { getCategory } from '../utils/categories';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
@@ -11,6 +11,7 @@ import {
   summarizeReportExpenses,
 } from '../utils/reporting';
 import { getMonthlyInsights, shiftMonth } from '../utils/advancedReports';
+import { usePageState } from '../contexts/NavigationContext';
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -113,11 +114,12 @@ function InsightMetric({ label, value, helper, color = 'var(--text-primary)' }) 
 
 export default function Report() {
   const [allExpenses, setAllExpenses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [filterMode, setFilterMode] = useState('all');
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [filterMode, setFilterMode] = usePageState('filterMode', 'all');
+  const [currentDate, setCurrentDate] = usePageState('month', () => new Date());
   const [isExporting, setIsExporting] = useState(false);
-  const [isPro, setIsPro] = useState(localStorage.getItem('namao_is_pro') === 'true');
+  const [isPro, setIsPro] = useState(getCachedProStatus);
   const reportRefs = useRef([]);
   const { showAlert, showConfirm, showProModal } = useDialog();
 
@@ -133,6 +135,8 @@ export default function Report() {
       } catch (error) {
         console.error('Falha ao carregar relatórios:', error);
         if (active) setLoadError(true);
+      } finally {
+        if (active) setIsLoading(false);
       }
     }
 
@@ -296,7 +300,7 @@ export default function Report() {
   };
 
   return (
-    <div className="animate-fade-up">
+    <div className="animate-fade-up" data-navigation-loading={isLoading}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
         <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>Relatórios</h1>
       </header>

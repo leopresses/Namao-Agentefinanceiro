@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { addExpenses, getExpenseById, updateExpense, updateExpenseGroup, getBudgets, getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { CATEGORIES } from '../utils/categories';
 import { parseBrazilianCurrency } from '../utils/currency';
+import { useGoBack } from '../contexts/NavigationContext';
 
 function formatLocalDate(d) {
   const year = d.getFullYear();
@@ -46,13 +47,14 @@ function addMonths(dateString, monthsToAdd) {
 }
 
 export default function ExpenseForm() {
-  const navigate = useNavigate();
+  const goBack = useGoBack();
   const [searchParams] = useSearchParams();
   const requestedType = searchParams.get('type');
   const editId = searchParams.get('id');
   const [entryType, setEntryType] = useState(requestedType === 'income' ? 'income' : 'expense');
   const isIncome = entryType === 'income';
   const isEditing = !!editId;
+  const [isLoading, setIsLoading] = useState(isEditing);
   const requestedDate = searchParams.get('date');
 
   const [description, setDescription] = useState(searchParams.get('description') || '');
@@ -110,7 +112,7 @@ export default function ExpenseForm() {
           const expense = await getExpenseById(editId);
           if (!expense) {
             showAlert('Lançamento não encontrado', 'Este lançamento já foi removido ou não está disponível neste dispositivo.');
-            navigate('/', { replace: true });
+            goBack();
             return;
           }
 
@@ -126,12 +128,14 @@ export default function ExpenseForm() {
         } catch (error) {
           console.error('Falha ao carregar lançamento:', error);
           showAlert('Erro', 'Não foi possível abrir este lançamento para edição.');
-          navigate('/', { replace: true });
+          goBack();
+        } finally {
+          setIsLoading(false);
         }
       }
       loadExpense();
     }
-  }, [editId, isEditing, navigate, showAlert]);
+  }, [editId, isEditing, goBack, showAlert]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -216,7 +220,7 @@ export default function ExpenseForm() {
         await addExpenses(newExpenses);
       }
 
-      navigate('/');
+      goBack();
     } catch (error) {
       console.error('Falha ao salvar lançamento:', error);
       showAlert('Erro', error.message === 'Lançamento não encontrado para atualização.'
@@ -229,9 +233,9 @@ export default function ExpenseForm() {
   };
 
   return (
-    <div className="animate-fade-up">
+    <div className="animate-fade-up" data-navigation-loading={isLoading}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <div className="btn-icon" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }}>{'<'}</div>
+        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack} style={{ cursor: 'pointer' }}>{'<'}</button>
         <h1 style={{ fontSize: '1.2rem', color: isIncome ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)' }}>
           {isEditing ? 'Editar Lançamento' : (isIncome ? 'Nova Renda' : 'Nova Despesa')}
         </h1>

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { getAllChats } from '../services/chatDb';
-import { getSecureUserId, getUserProStatus, onAuthChange, saveCloudBackup } from '../services/firebase';
+import { BackupConflictError, getSecureUserId, getUserProStatus, onAuthChange, saveCloudBackup } from '../services/firebase';
+import { ensureLocalAccount, getAccountSetting, setAccountSetting } from '../services/accountScope';
 import { IS_LOCAL_TEST_MODE } from '../config/environment';
 
 export function useAutoSync() {
@@ -22,16 +23,18 @@ export function useAutoSync() {
     }
 
     const uid = getSecureUserId();
-    if (!uid) {
-      localStorage.setItem('namao_pending_sync', 'true');
+    if (!uid) return;
+
+    if (getAccountSetting('namao_backup_conflict', uid) === 'true') {
+      setSyncStatus('conflict');
       return;
     }
 
     // Depois de "Apagar dados locais", preservamos o último backup até que
     // a pessoa escolha explicitamente restaurá-lo ou fazer um novo backup.
     // Isso impede que uma base vazia substitua a cópia em nuvem sem aviso.
-    if (localStorage.getItem('namao_cloud_backup_protected') === 'true') {
-      localStorage.setItem('namao_pending_sync', 'false');
+    if (getAccountSetting('namao_cloud_backup_protected', uid) === 'true') {
+      setAccountSetting('namao_pending_sync', 'false', uid);
       setSyncStatus('idle');
       return;
     }
@@ -39,9 +42,10 @@ export function useAutoSync() {
     syncingRef.current = true;
     setSyncStatus('syncing');
     try {
+      await ensureLocalAccount(uid);
       const proData = await getUserProStatus();
       if (!proData.isPro) {
-        localStorage.setItem('namao_pending_sync', 'false');
+        setAccountSetting('namao_pending_sync', 'false', uid);
         setSyncStatus('idle');
         return;
       }
@@ -52,18 +56,27 @@ export function useAutoSync() {
         getGoals(),
       ]);
       const chats = getAllChats();
-      await saveCloudBackup(expenses, chats, budgets, goals);
+      if (getSecureUserId() !== uid) return;
+      const revision = await saveCloudBackup(
+        expenses, chats, budgets, goals, getAccountSetting('namao_backup_revision', uid)
+      );
 
-      localStorage.setItem('namao_pending_sync', 'false');
+      setAccountSetting('namao_backup_revision', revision, uid);
+      setAccountSetting('namao_pending_sync', 'false', uid);
       const now = new Date().toISOString();
-      localStorage.setItem('namao_last_sync_time', now);
+      setAccountSetting('namao_last_sync_time', now, uid);
       window.dispatchEvent(new CustomEvent('namao_sync_completed'));
       setSyncStatus('success');
       window.setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (error) {
       console.error('Erro na sincronização automática:', error);
-      localStorage.setItem('namao_pending_sync', 'true');
-      setSyncStatus('error');
+      setAccountSetting('namao_pending_sync', 'true', uid);
+      if (error instanceof BackupConflictError) {
+        setAccountSetting('namao_backup_conflict', 'true', uid);
+        setSyncStatus('conflict');
+      } else {
+        setSyncStatus('error');
+      }
     } finally {
       syncingRef.current = false;
       if (syncQueuedRef.current && navigator.onLine) {
@@ -77,8 +90,12 @@ export function useAutoSync() {
     const checkInitialSync = () => {
       if (!navigator.onLine || !getSecureUserId()) return;
 
-      const lastSync = localStorage.getItem('namao_last_sync_time');
-      const hasPendingSync = localStorage.getItem('namao_pending_sync') === 'true';
+      if (getAccountSetting('namao_backup_conflict') === 'true') {
+        setSyncStatus('conflict');
+        return;
+      }
+      const lastSync = getAccountSetting('namao_last_sync_time');
+      const hasPendingSync = getAccountSetting('namao_pending_sync') === 'true';
       if (hasPendingSync) {
         doSync();
         return;
@@ -94,12 +111,13 @@ export function useAutoSync() {
 
     const handleOnline = () => {
       setIsOnline(true);
-      if (localStorage.getItem('namao_pending_sync') === 'true') doSync();
+      if (getSecureUserId() && getAccountSetting('namao_pending_sync') === 'true') doSync();
     };
     const handleOffline = () => setIsOnline(false);
     const handleDataChanged = () => {
+      if (!getSecureUserId()) return;
       if (navigator.onLine) doSync();
-      else localStorage.setItem('namao_pending_sync', 'true');
+      else setAccountSetting('namao_pending_sync', 'true');
     };
 
     const unsubscribe = onAuthChange((user) => {

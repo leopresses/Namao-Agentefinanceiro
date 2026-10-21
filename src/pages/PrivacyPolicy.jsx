@@ -1,5 +1,6 @@
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { useGoBack } from '../contexts/NavigationContext';
 import { PRIVACY_EMAIL } from '../config/legal';
 
 const updatedAt = '20 de agosto de 2026';
@@ -14,11 +15,11 @@ function Section({ title, children }) {
 }
 
 export default function PrivacyPolicy() {
-  const navigate = useNavigate();
+  const goBack = useGoBack('/login');
 
   return (
     <main className="animate-fade-up" style={{ maxWidth: '760px', margin: '0 auto', padding: '24px 0 48px' }}>
-      <button type="button" onClick={() => navigate(-1)} style={{ background: 'transparent', color: 'var(--text-secondary)', padding: '8px 0', marginBottom: '12px' }}>
+      <button type="button" onClick={goBack} style={{ background: 'transparent', color: 'var(--text-secondary)', padding: '8px 0', marginBottom: '12px' }}>
         <ArrowLeft size={20} /> Voltar
       </button>
 

@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { addGoal, updateGoal, deleteGoal, getGoals } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { Trash2 } from 'lucide-react';
 import { parseBrazilianCurrency } from '../utils/currency';
+import { useGoBack } from '../contexts/NavigationContext';
 
 const EMOJIS = ['🎯', '🐷', '🚗', '✈️', '🏠', '💻', '💍', '🎓', '🏥', '🎉', '🏍️', '📱'];
 
 export default function GoalForm() {
-  const navigate = useNavigate();
+  const goBack = useGoBack('/goals');
   const { id } = useParams();
   const isEditing = !!id;
+  const [isLoading, setIsLoading] = useState(isEditing);
   const { showConfirm, showAlert } = useDialog();
 
   const [title, setTitle] = useState('');
@@ -33,12 +35,13 @@ export default function GoalForm() {
           setCurrentAmount((goal.currentAmount || 0).toString());
           if (goal.deadline) setDeadline(goal.deadline);
         } else {
-          navigate('/goals', { replace: true });
+          goBack();
         }
+        setIsLoading(false);
       }
       loadGoal();
     }
-  }, [id, isEditing, navigate]);
+  }, [id, isEditing, goBack]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -88,7 +91,7 @@ export default function GoalForm() {
         showAlert('Sucesso', 'Nova meta criada com sucesso!');
       }
 
-      navigate('/goals', { replace: true });
+      goBack();
     } catch (error) {
       console.error('Não foi possível salvar a meta:', error);
       showAlert('Erro', 'Não foi possível salvar a meta. Tente novamente.');
@@ -107,7 +110,7 @@ export default function GoalForm() {
     setIsDeleting(true);
     try {
       await deleteGoal(id);
-      navigate('/goals', { replace: true });
+      goBack();
     } catch (error) {
       console.error('Não foi possível excluir a meta:', error);
       showAlert('Erro', 'Não foi possível excluir a meta. Tente novamente.');
@@ -124,9 +127,9 @@ export default function GoalForm() {
   };
 
   return (
-    <div className="animate-fade-up">
+    <div className="animate-fade-up" data-navigation-loading={isLoading}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px', display: 'flex', alignItems: 'center' }}>
-        <div className="btn-icon" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }}>{'<'}</div>
+        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack} style={{ cursor: 'pointer' }}>{'<'}</button>
         <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', textAlign: 'center', flex: 1, marginRight: isEditing ? '0' : '48px' }}>
           {isEditing ? 'Editar Meta' : 'Nova Meta'}
         </h1>

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getExpenseById, deleteExpense, updateExpense, getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
+import { useGoBack } from '../contexts/NavigationContext';
 
 export default function ExpenseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const { showConfirm } = useDialog();
   const [expense, setExpense] = useState(null);
 
@@ -13,10 +15,10 @@ export default function ExpenseDetails() {
     async function load() {
       const data = await getExpenseById(id);
       if (data) setExpense(data);
-      else navigate('/'); 
+      else goBack();
     }
     load();
-  }, [id, navigate]);
+  }, [id, goBack]);
 
   const handleDelete = async () => {
     if (expense.groupId) {
@@ -27,7 +29,7 @@ export default function ExpenseDetails() {
         for (let e of toDelete) {
           await deleteExpense(e.id);
         }
-        navigate('/');
+        goBack();
         return;
       }
     }
@@ -35,7 +37,7 @@ export default function ExpenseDetails() {
     const confirmed = await showConfirm('Excluir Lançamento', 'Tem certeza que deseja excluir APENAS esta movimentação?');
     if (confirmed) {
       await deleteExpense(id);
-      navigate('/');
+      goBack();
     }
   };
 
@@ -43,10 +45,10 @@ export default function ExpenseDetails() {
     const updated = { ...expense, status: newStatus };
     await updateExpense(updated);
     setExpense(updated);
-    navigate(-1); // Volta para a tela anterior
+    goBack();
   };
 
-  if (!expense) return <div style={{ padding: '24px', textAlign: 'center' }}>Carregando...</div>;
+  if (!expense) return <div data-navigation-loading="true" style={{ padding: '24px', textAlign: 'center' }}>Carregando...</div>;
 
   const isIncome = expense.type === 'income';
   const isPaid = expense.status === 'paid';
@@ -54,7 +56,7 @@ export default function ExpenseDetails() {
   return (
     <div style={{ paddingBottom: '80px' }}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <div className="btn-icon" onClick={() => navigate(-1)}>{'<'}</div>
+        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack}>{'<'}</button>
         <h1 style={{ fontSize: '1.2rem' }}>Detalhamento</h1>
         <div className="btn-icon" style={{ opacity: 0 }}></div>
       </header>
