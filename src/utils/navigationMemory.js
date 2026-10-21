@@ -23,6 +23,9 @@ export function createNavigationMemory() {
       if (!values.has(field)) values.set(field, initialValue);
       return values.get(field);
     },
+    peekValue(key, field) {
+      return pages.get(key)?.values.get(field);
+    },
     setValue(key, field, value) {
       const values = page(key).values;
       const next = typeof value === 'function' ? value(values.get(field)) : value;

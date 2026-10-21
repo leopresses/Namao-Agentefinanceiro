@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, User, Bot, FileText, Plus, ArrowUpCircle, ArrowDownCircle, Mic, X } from 'lucide-react';
 import { useVoiceExpense } from '../hooks/useVoiceExpense';
+import { useNewExpensePath } from '../contexts/NavigationContext';
 
 const Sidebar = () => {
   const navigate = useNavigate();
+  const newExpensePath = useNewExpensePath();
   const [showDesktopMenu, setShowDesktopMenu] = useState(false);
   const { isListening, isProcessing, handleVoice, cancelVoice } = useVoiceExpense();
 
@@ -15,7 +17,7 @@ const Sidebar = () => {
 
   const handleAdd = (type) => {
     setShowDesktopMenu(false);
-    navigate(`/expense/new?type=${type}`);
+    navigate(newExpensePath(type));
   };
 
   const handleVoiceEntry = () => {

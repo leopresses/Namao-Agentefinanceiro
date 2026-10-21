@@ -1,51 +1,83 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getExpenseById, deleteExpense, updateExpense, getExpenses } from '../services/db';
+import { CalendarDays, Check, Pencil, Repeat2, Tag, Trash2 } from 'lucide-react';
+import { getExpenseById, deleteExpenseSeries, updateExpense } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { useGoBack } from '../contexts/NavigationContext';
+import { getCategory } from '../utils/categories';
+import BackButton from '../components/BackButton';
+import RecurrenceScopeDialog from '../components/RecurrenceScopeDialog';
 
 export default function ExpenseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const goBack = useGoBack();
-  const { showConfirm } = useDialog();
+  const { showConfirm, showAlert } = useDialog();
   const [expense, setExpense] = useState(null);
+  const [isBusy, setIsBusy] = useState(false);
+  const [showDeleteScope, setShowDeleteScope] = useState(false);
+  const actionLock = useRef(false);
 
   useEffect(() => {
+    let active = true;
     async function load() {
-      const data = await getExpenseById(id);
-      if (data) setExpense(data);
-      else goBack();
-    }
-    load();
-  }, [id, goBack]);
-
-  const handleDelete = async () => {
-    if (expense.groupId) {
-      const confirmedAll = await showConfirm('Excluir Recorrência', 'Deseja excluir TODAS as parcelas ligadas a este lançamento (incluindo as antigas já pagas)?');
-      if (confirmedAll) {
-        const all = await getExpenses();
-        const toDelete = all.filter(e => e.groupId === expense.groupId);
-        for (let e of toDelete) {
-          await deleteExpense(e.id);
+      try {
+        const data = await getExpenseById(id);
+        if (!active) return;
+        if (data) setExpense(data);
+        else goBack();
+      } catch (error) {
+        console.error('Falha ao carregar lançamento:', error);
+        if (active) {
+          showAlert('Erro', 'Não foi possível abrir este lançamento. Tente novamente.');
+          goBack();
         }
-        goBack();
-        return;
       }
     }
+    load();
+    return () => { active = false; };
+  }, [id, goBack, showAlert]);
 
-    const confirmed = await showConfirm('Excluir Lançamento', 'Tem certeza que deseja excluir APENAS esta movimentação?');
-    if (confirmed) {
-      await deleteExpense(id);
+  const deleteSelected = async (scope) => {
+    if (!scope) { setShowDeleteScope(false); return; }
+    if (actionLock.current) return;
+    actionLock.current = true;
+    setIsBusy(true);
+    try {
+      await deleteExpenseSeries(id, scope);
+      setShowDeleteScope(false);
       goBack();
+    } catch (error) {
+      console.error('Falha ao excluir lançamento:', error);
+      setShowDeleteScope(false);
+      showAlert('Erro', 'Não foi possível excluir. Tente novamente.');
+    } finally {
+      actionLock.current = false;
+      setIsBusy(false);
     }
   };
 
-  const updateStatus = async (newStatus) => {
-    const updated = { ...expense, status: newStatus };
-    await updateExpense(updated);
-    setExpense(updated);
-    goBack();
+  const handleDelete = async () => {
+    if (actionLock.current) return;
+    if (expense.groupId) { setShowDeleteScope(true); return; }
+    const confirmed = await showConfirm('Excluir lançamento', 'Deseja excluir este lançamento? Esta ação não pode ser desfeita.');
+    if (confirmed) await deleteSelected('one');
+  };
+
+  const updateStatus = async (status) => {
+    if (actionLock.current) return;
+    actionLock.current = true;
+    setIsBusy(true);
+    try {
+      await updateExpense({ ...expense, status });
+      goBack();
+    } catch (error) {
+      console.error('Falha ao atualizar situação:', error);
+      showAlert('Erro', 'Não foi possível atualizar a situação. Tente novamente.');
+    } finally {
+      actionLock.current = false;
+      setIsBusy(false);
+    }
   };
 
   if (!expense) return <div data-navigation-loading="true" style={{ padding: '24px', textAlign: 'center' }}>Carregando...</div>;
@@ -53,77 +85,40 @@ export default function ExpenseDetails() {
   const isIncome = expense.type === 'income';
   const isPaid = expense.status === 'paid';
   const isPlanned = expense.status === 'planned';
+  const category = getCategory(expense.category);
+  const statusLabel = isIncome ? 'Recebido' : isPaid ? 'Pago' : isPlanned ? 'Planejado' : 'Pendente';
+
   return (
-    <div style={{ paddingBottom: '80px' }}>
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack}>{'<'}</button>
-        <h1 style={{ fontSize: '1.2rem' }}>Detalhamento</h1>
-        <div className="btn-icon" style={{ opacity: 0 }}></div>
+    <div className="expense-details">
+      <header className="app-header glass expense-detail-header">
+        <BackButton onClick={goBack} />
+        <h1>Detalhamento</h1>
+        <span className="back-button-spacer" aria-hidden="true" />
       </header>
-
-      <div className="glass-card" style={{ textAlign: 'center', marginTop: '16px' }}>
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '8px' }}>
-            {isIncome ? 'Renda' : 'Despesa'}
-          </p>
-          <h2 style={{ fontSize: '1.4rem', color: 'var(--text-primary)', marginBottom: '16px' }}>{expense.description}</h2>
-          
-          <h1 style={{ 
-            fontSize: '2.5rem', 
-            color: isIncome ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)',
-            marginBottom: '16px' 
-          }}>
-            R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h1>
-          
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
-            Data: {expense.date.split('-').reverse().join('/')}
-          </p>
-
-          <button 
-            onClick={() => navigate(`/expense/new?id=${expense.id}&type=${expense.type}`)} 
-            className="btn-primary"
-            style={{ width: '100%', marginBottom: '24px', background: 'rgba(15, 23, 42, 0.05)', color: 'var(--text-primary)', border: '1px solid rgba(15, 23, 42, 0.1)', boxShadow: 'none' }}
-          >
-            Editar Lançamento
-          </button>
-
-          <p style={{ color: 'var(--text-primary)', fontWeight: '600', marginBottom: '8px' }}>
-            Status: {isPaid ? 'Recebido/Pago' : isPlanned ? 'Planejado' : 'Pendente'}
-          </p>
-          {!isIncome && (
-            <>
-              <button
-                onClick={() => updateStatus(isPaid ? 'unpaid' : 'paid')}
-                className={isPaid ? "btn-danger" : "btn-primary"}
-                style={{
-                  width: '100%',
-                  margin: '16px 0 8px',
-                  boxShadow: 'none'
-                }}
-              >
-                {isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
-              </button>
-              {!isPlanned && (
-                <button
-                  onClick={() => updateStatus('planned')}
-                  style={{
-                    width: '100%', padding: '12px', borderRadius: '16px',
-                    background: 'transparent', color: '#b45309',
-                    border: '1px solid rgba(245, 158, 11, 0.45)', fontWeight: '600'
-                  }}
-                >
-                  Marcar como Planejada
-                </button>
-              )}
-            </>
-          )}
+      <section className="glass-card expense-detail-card" aria-labelledby="expense-title" aria-busy={isBusy}>
+        <div className="expense-detail-topline">
+          <span>{isIncome ? 'Renda' : 'Despesa'}</span>
+          <span className={`expense-status expense-status-${isIncome || isPaid ? 'paid' : isPlanned ? 'planned' : 'unpaid'}`}>{statusLabel}</span>
         </div>
-      </div>
-
-      <button onClick={handleDelete} className="btn-danger" style={{ width: '100%', marginTop: '24px' }}>
-        Excluir {isIncome ? 'Renda' : 'Despesa'}
-      </button>
+        <h2 id="expense-title">{expense.description}</h2>
+        <p className={`expense-detail-amount${isIncome ? ' income' : ''}`}>R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+        <dl className="expense-detail-info">
+          <div><dt><CalendarDays size={18} aria-hidden="true" /> Data</dt><dd>{expense.date.split('-').reverse().join('/')}</dd></div>
+          <div><dt><Tag size={18} aria-hidden="true" /> Categoria</dt><dd>{isIncome ? '💰 Renda' : `${category.icon} ${category.label}`}</dd></div>
+          {expense.groupId && <div><dt><Repeat2 size={18} aria-hidden="true" /> Repetição</dt><dd>Lançamento recorrente</dd></div>}
+        </dl>
+        <div className="expense-detail-actions">
+          {!isIncome && <button type="button" disabled={isBusy} onClick={() => updateStatus(isPaid ? 'unpaid' : 'paid')} className={isPaid ? 'expense-secondary-button' : 'btn-primary'}>
+            {!isPaid && <Check size={20} aria-hidden="true" />}{isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
+          </button>}
+          <button type="button" disabled={isBusy} onClick={() => navigate(`/expense/new?id=${expense.id}&type=${expense.type}`)} className={isIncome ? 'btn-primary' : 'expense-secondary-button'}>
+            <Pencil size={18} aria-hidden="true" /> Editar Lançamento
+          </button>
+          {!isIncome && !isPlanned && <button type="button" disabled={isBusy} onClick={() => updateStatus('planned')} className="expense-planned-button">Marcar como Planejada</button>}
+        </div>
+      </section>
+      <button type="button" disabled={isBusy} onClick={handleDelete} className="expense-delete-button"><Trash2 size={18} aria-hidden="true" /> Excluir {isIncome ? 'Renda' : 'Despesa'}</button>
+      {showDeleteScope && <RecurrenceScopeDialog action="delete" onChoose={deleteSelected} busy={isBusy} />}
     </div>
   );
 }

@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "api/chat.js": { "maxDuration": 60 }
+  },
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }

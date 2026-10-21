@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getIdToken } from '../services/firebase';
 import { useDialog } from '../contexts/DialogContext';
+import { useNewExpensePath } from '../contexts/NavigationContext';
 
 const VOICE_TIMEOUT_MS = 30000;
 
@@ -33,6 +34,7 @@ async function getApiErrorMessage(response) {
 
 export function useVoiceExpense() {
   const navigate = useNavigate();
+  const newExpensePath = useNewExpensePath();
   const { showAlert, showConfirm } = useDialog();
   const recognitionRef = useRef(null);
   const requestControllerRef = useRef(null);
@@ -67,7 +69,7 @@ export function useVoiceExpense() {
         'Lançamento por voz indisponível',
         'Seu navegador não oferece reconhecimento de voz. Deseja abrir o cadastro manual de uma despesa?'
       );
-      if (openManualEntry) navigate('/expense/new?type=expense');
+      if (openManualEntry) navigate(newExpensePath('expense'));
       return;
     }
 
@@ -169,7 +171,7 @@ export function useVoiceExpense() {
       setIsListening(false);
       showAlert('Lançamento por voz', 'O microfone já está em uso ou não pôde ser iniciado. Tente novamente.');
     }
-  }, [isListening, isProcessing, navigate, showAlert, showConfirm]);
+  }, [isListening, isProcessing, navigate, newExpensePath, showAlert, showConfirm]);
 
   return { isListening, isProcessing, handleVoice, cancelVoice };
 }

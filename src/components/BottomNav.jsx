@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Plus, User, Bot, FileText, ArrowDownCircle, ArrowUpCircle, Mic, X } from 'lucide-react';
 import { useVoiceExpense } from '../hooks/useVoiceExpense';
+import { useNewExpensePath } from '../contexts/NavigationContext';
 
 const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const newExpensePath = useNewExpensePath();
   const [showMenu, setShowMenu] = useState(false);
   const { isListening, isProcessing, handleVoice, cancelVoice } = useVoiceExpense();
 
@@ -16,7 +18,7 @@ const BottomNav = () => {
 
   const handleAdd = (type) => {
     setShowMenu(false);
-    navigate(`/expense/new?type=${type}`);
+    navigate(newExpensePath(type));
   };
 
   const handleVoiceEntry = () => {

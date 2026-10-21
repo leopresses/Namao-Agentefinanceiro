@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { addExpenses, getExpenseById, updateExpense, updateExpenseGroup, getBudgets, getExpenses } from '../services/db';
+import { addExpenses, getExpenseById, editExpenseSeries, getBudgets, getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { CATEGORIES } from '../utils/categories';
 import { parseBrazilianCurrency } from '../utils/currency';
 import { useGoBack } from '../contexts/NavigationContext';
+import BackButton from '../components/BackButton';
+import RecurrenceScopeDialog from '../components/RecurrenceScopeDialog';
 
 function formatLocalDate(d) {
   const year = d.getFullYear();
@@ -69,10 +71,18 @@ export default function ExpenseForm() {
   const [installments, setInstallments] = useState(2);
   const [fixedMonths, setFixedMonths] = useState(12);
   const [groupId, setGroupId] = useState(null);
-  const [installmentSuffix, setInstallmentSuffix] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showScopeDialog, setShowScopeDialog] = useState(false);
+  const scopeResolver = useRef(null);
   const saveLockRef = useRef(false);
-  const { showConfirm, showAlert } = useDialog();
+  const { showAlert } = useDialog();
+  const chooseScope = (scope) => {
+    setShowScopeDialog(false);
+    scopeResolver.current?.(scope);
+    scopeResolver.current = null;
+  };
+
+  useEffect(() => () => { scopeResolver.current?.(null); }, []);
 
   const [budgetLimit, setBudgetLimit] = useState(0);
   const [currentSpent, setCurrentSpent] = useState(0);
@@ -124,7 +134,6 @@ export default function ExpenseForm() {
           setStatus(expense.type === 'income' ? 'paid' : expense.status);
           setCategory(normalizeCategory(expense.category));
           setGroupId(expense.groupId || null);
-          setInstallmentSuffix(suffix);
         } catch (error) {
           console.error('Falha ao carregar lançamento:', error);
           showAlert('Erro', 'Não foi possível abrir este lançamento para edição.');
@@ -171,32 +180,23 @@ export default function ExpenseForm() {
       if (isEditing) {
         const newAmount = parsedAmount;
         const baseDescription = groupId ? removeRecurrenceSuffix(cleanDescription) : cleanDescription;
-        const currentDescription = installmentSuffix ? `${baseDescription}${installmentSuffix}` : baseDescription;
-
+        let scope = 'one';
         if (groupId) {
-          const updateAll = await showConfirm(
-            'Atualizar Parcelas',
-            'Deseja aplicar valor, categoria e descrição para todas as parcelas deste grupo? Datas e situações individuais serão preservadas. (OK para todas; Cancelar para somente esta).'
-          );
-
-          if (updateAll) {
-            await updateExpenseGroup(groupId, (expense) => {
-              const suffix = expense.description.match(/\s\(\d+\/\d+\)$/)?.[0] || '';
-              return { amount: newAmount, category, description: `${baseDescription}${suffix}` };
-            });
-          }
+          scope = await new Promise((resolve) => {
+            scopeResolver.current = resolve;
+            setShowScopeDialog(true);
+          });
+          if (!scope) return;
         }
 
-        await updateExpense({
-          id: editId,
-          description: currentDescription,
+        await editExpenseSeries(editId, {
+          description: baseDescription,
           amount: newAmount,
           date,
           type: entryType,
           status: isIncome ? 'paid' : status,
           category,
-          groupId
-        });
+        }, scope);
       } else {
         const valuePerInstallment = parsedAmount;
         const recurringGroupId = loops > 1 ? Date.now().toString() + Math.random().toString(36).substring(2, 9) : null;
@@ -235,11 +235,11 @@ export default function ExpenseForm() {
   return (
     <div className="animate-fade-up" data-navigation-loading={isLoading}>
       <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack} style={{ cursor: 'pointer' }}>{'<'}</button>
+        <BackButton onClick={goBack} />
         <h1 style={{ fontSize: '1.2rem', color: isIncome ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)' }}>
           {isEditing ? 'Editar Lançamento' : (isIncome ? 'Nova Renda' : 'Nova Despesa')}
         </h1>
-        <div style={{ width: '48px' }}></div>
+        <span className="back-button-spacer" aria-hidden="true" />
       </header>
 
       <div className="glass-card">
@@ -421,6 +421,7 @@ export default function ExpenseForm() {
           </button>
         </form>
       </div>
+      {showScopeDialog && <RecurrenceScopeDialog onChoose={chooseScope} />}
     </div>
   );
 }

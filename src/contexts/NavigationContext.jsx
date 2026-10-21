@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { createNavigationMemory } from '../utils/navigationMemory';
+import { getEntryDate } from '../utils/expenseList';
 
 const NavigationContext = createContext(null);
 
@@ -96,4 +97,15 @@ export function useGoBack(fallback = '/') {
     if (memory.canGoBack(window.history.state?.idx ?? 0)) navigate(-1);
     else navigate(fallback, { replace: true });
   }, [fallback, memory, navigate]);
+}
+
+// Consulta o mês na hora do clique: os menus globais estão fora do dashboard.
+export function useNewExpensePath() {
+  const memory = useContext(NavigationContext);
+  const { key, pathname } = useLocation();
+  return useCallback((type) => {
+    const month = ['/', '/report'].includes(pathname) ? memory.peekValue(key, 'month') : null;
+    const params = new URLSearchParams({ type, date: getEntryDate(month) });
+    return `/expense/new?${params}`;
+  }, [key, memory, pathname]);
 }

@@ -1,5 +1,6 @@
 import { get, set, update } from 'idb-keyval';
 import { accountKey } from './accountScope';
+import { applyExpenseEdit, isInExpenseScope } from '../utils/expenseSeries';
 
 const EXPENSES_KEY = 'namao_expenses';
 const BUDGETS_KEY = 'namao_budgets';
@@ -101,6 +102,21 @@ export async function updateExpenseGroup(groupId, updates) {
       const resolvedUpdates = typeof updates === 'function' ? updates(e) : updates;
       return { ...e, ...resolvedUpdates };
     });
+  });
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
+export async function editExpenseSeries(id, changes, scope = 'one') {
+  await update(expensesKey(), (expenses) => applyExpenseEdit(expenses || [], id, changes, scope));
+  window.dispatchEvent(new CustomEvent('namao_data_changed'));
+}
+
+export async function deleteExpenseSeries(id, scope = 'one') {
+  if (!['one', 'future', 'all'].includes(scope)) throw new Error('Opção de recorrência inválida.');
+  await update(expensesKey(), (expenses = []) => {
+    const original = expenses.find((expense) => expense.id === id);
+    if (!original) return expenses;
+    return expenses.filter((expense) => !isInExpenseScope(expense, original, scope));
   });
   window.dispatchEvent(new CustomEvent('namao_data_changed'));
 }

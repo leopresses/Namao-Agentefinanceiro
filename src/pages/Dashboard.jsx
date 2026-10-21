@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import { getCategory } from '../utils/categories';
+import { ChevronLeft, ChevronRight, Search, Star, X } from 'lucide-react';
+import { CATEGORIES, getCategory } from '../utils/categories';
 import { getCachedProStatus, getUserProStatus, onAuthChange } from '../services/firebase';
 import { useDialog } from '../contexts/DialogContext';
 import { getGoalProgress } from '../utils/goals';
@@ -13,6 +13,7 @@ import {
 } from '../utils/proNotifications';
 import { shiftMonth } from '../utils/advancedReports';
 import { usePageState } from '../contexts/NavigationContext';
+import { filterExpenseList } from '../utils/expenseList';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -31,6 +32,18 @@ export default function Dashboard() {
   
   // Date tracking for Month Filter
   const [currentDate, setCurrentDate] = usePageState('month', () => new Date());
+  const [search, setSearch] = usePageState('search', '');
+  const [categoryFilter, setCategoryFilter] = usePageState('categoryFilter', 'all');
+  const [statusFilter, setStatusFilter] = usePageState('statusFilter', 'all');
+  const visibleExpenses = useMemo(() => filterExpenseList(displayedExpenses, {
+    search, category: categoryFilter, status: statusFilter,
+  }), [displayedExpenses, search, categoryFilter, statusFilter]);
+  const hasFilters = !!search || categoryFilter !== 'all' || statusFilter !== 'all';
+  const clearFilters = () => {
+    setSearch('');
+    setCategoryFilter('all');
+    setStatusFilter('all');
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -403,13 +416,42 @@ export default function Dashboard() {
         </div>
       )}
       
-      <div>
+      <section aria-label="Lançamentos do mês">
         <h3 style={{ marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Lançamentos</h3>
-        {displayedExpenses.length === 0 ? (
-          <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginTop: '32px' }}>Nenhuma movimentação neste mês.</p>
+        <div className="expense-filters glass-card">
+          <label className="expense-search">
+            <Search size={20} aria-hidden="true" />
+            <input type="search" aria-label="Buscar lançamentos" placeholder="Buscar por descrição" value={search} onChange={(event) => setSearch(event.target.value)} />
+            {search && <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}><X size={18} /></button>}
+          </label>
+          <div className="expense-category-filter">
+            <label htmlFor="expense-category-filter">Categoria</label>
+            <select id="expense-category-filter" className="input-field" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              <option value="all">Todas as categorias</option>
+              <option value="income">💰 Rendas</option>
+              {CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.icon} {category.label}</option>)}
+            </select>
+          </div>
+          <div className="expense-status-filters" role="group" aria-label="Filtrar por situação">
+            {[
+              ['all', 'Todos'], ['unpaid', 'Pendentes'], ['paid', 'Pagos / recebidos'], ['planned', 'Planejados'],
+            ].map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)}>{label}</button>
+            ))}
+          </div>
+          <div className="expense-filter-summary">
+            <p aria-live="polite">{visibleExpenses.length} de {displayedExpenses.length} lançamentos neste mês</p>
+            {hasFilters && <button type="button" onClick={clearFilters}>Limpar filtros</button>}
+          </div>
+        </div>
+        {visibleExpenses.length === 0 ? (
+          <div className="expense-empty">
+            <p>{hasFilters ? 'Nenhum lançamento encontrado com esses filtros neste mês.' : 'Nenhuma movimentação neste mês.'}</p>
+            {hasFilters && <button type="button" onClick={clearFilters}>Limpar filtros</button>}
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {displayedExpenses.map((exp) => {
+            {visibleExpenses.map((exp) => {
               const isIncome = exp.type === 'income';
               const isPaid = exp.status === 'paid';
               const isPlanned = exp.status === 'planned';
@@ -428,10 +470,10 @@ export default function Dashboard() {
               else if (isPlanned) statusText = '• Planejado';
 
               return (
-                <Link to={`/expense/${exp.id}`} key={exp.id} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', textDecoration: 'none', color: 'inherit' }}>
-                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <Link to={`/expense/${exp.id}`} key={exp.id} className="glass-card expense-list-item" style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '16px', textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', minWidth: 0 }}>
                     <div style={{ width: '4px', height: '100%', background: color, borderRadius: '4px' }}></div>
-                    <div>
+                    <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
                       <h4 style={{ margin: 0, fontSize: '1rem', color: (isPaid || isPlanned) && !isIncome ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: isPaid && !isIncome ? 'line-through' : 'none' }}>
                         {isIncome ? '💰' : catInfo.icon} {exp.description}
                       </h4>
@@ -440,7 +482,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                   </div>
-                  <div style={{ fontWeight: '600', color: color }}>
+                  <div style={{ fontWeight: '600', color: color, flexShrink: 0, whiteSpace: 'nowrap', alignSelf: 'center' }}>
                     {sign} R$ {exp.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </Link>
@@ -448,7 +490,7 @@ export default function Dashboard() {
             })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

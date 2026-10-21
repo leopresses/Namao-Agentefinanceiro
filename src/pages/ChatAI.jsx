@@ -5,14 +5,16 @@ import { getCachedProStatus, getIdToken, getUserProStatus, onAuthChange } from '
 import { MessageSquarePlus, History, Trash2, X, Sparkles } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { buildFinancialContext } from '../utils/financialContext';
+import { IS_LOCAL_TEST_MODE } from '../config/environment';
 
-const CHAT_TIMEOUT_MS = 45000;
+const CHAT_TIMEOUT_MS = 65000;
 const MAX_HISTORY_MESSAGES = 10;
 const MAX_HISTORY_MESSAGE_LENGTH = 700;
 const MAX_CONVERSATION_HISTORY_LENGTH = 8000;
 
 function buildConversationHistory(messages) {
   const history = messages
+    .filter((message) => !message.isError)
     .slice(-MAX_HISTORY_MESSAGES)
     .map((message) => {
       const speaker = message.sender === 'user' ? 'Usuário' : 'NaMão IA';
@@ -170,7 +172,8 @@ export default function ChatAI() {
     const conversationHistory = buildConversationHistory(messages);
     const requestId = requestSequenceRef.current + 1;
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => { timedOut = true; controller.abort(); }, CHAT_TIMEOUT_MS);
 
     requestSequenceRef.current = requestId;
     requestControllerRef.current = controller;
@@ -200,17 +203,15 @@ export default function ChatAI() {
         budgets: budgetsData,
         goals: goalsData,
       });
-      // Para Vercel, usamos caminho relativo. Em dev, o Vite Proxy lida com isso se configurado,
-      // mas na Vercel o backend já roda no mesmo domínio do frontend.
       const apiUrl = import.meta.env.VITE_API_URL || '/api/chat';
-      
-      // SEGURANÇA: Envia Firebase ID Token (JWT) ao invés de secret estático
-      let authHeader = {};
-      try {
+      const isLocalTest = import.meta.env.DEV && IS_LOCAL_TEST_MODE
+        && localStorage.getItem('namao_local_test_user') === 'true';
+      let authHeader;
+      if (isLocalTest) {
+        authHeader = { 'X-Namao-Local-Test': 'true' };
+      } else {
         const token = await getIdToken();
         authHeader = { 'Authorization': `Bearer ${token}` };
-      } catch {
-        // Usuário não autenticado via Google, continuar sem token
       }
 
       const response = await fetch(apiUrl, {
@@ -228,8 +229,9 @@ export default function ChatAI() {
         throw new Error(errData?.error || 'Falha ao conectar com o servidor.');
       }
 
-      const data = await response.json();
-      if (controller.signal.aborted || requestId !== requestSequenceRef.current) return;
+      const data = await response.json().catch(() => null);
+      if (requestId !== requestSequenceRef.current) return;
+      if (controller.signal.aborted) throw new Error('Tempo limite da IA.');
       if (typeof data?.text !== 'string' || !data.text.trim()) {
         throw new Error('A IA não retornou uma resposta válida. Tente novamente.');
       }
@@ -251,8 +253,10 @@ export default function ChatAI() {
       }
     } catch (error) {
       console.error(error);
-      if (controller.signal.aborted || requestId !== requestSequenceRef.current) return;
-      const errorText = getChatErrorMessage(error);
+      if (requestId !== requestSequenceRef.current || (controller.signal.aborted && !timedOut)) return;
+      const errorText = timedOut
+        ? 'A IA demorou para responder. Tente novamente em instantes.'
+        : getChatErrorMessage(error);
       if (/limite de mensagens gratuitas/i.test(errorText)) {
         showProModal();
         return;
