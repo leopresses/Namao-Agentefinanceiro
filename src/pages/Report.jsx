@@ -2,9 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getExpenses } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { getCachedProStatus, getUserProStatus, onAuthChange } from '../services/firebase';
-import { CalendarClock, ChevronLeft, ChevronRight, Lock, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
+import ReportSummary from '../components/ReportSummary';
 import { getCategory } from '../utils/categories';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   formatLocalFileDate,
   getReportExpenses,
@@ -17,7 +16,6 @@ const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
-const CHART_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F43F5E', '#64748B'];
 
 function formatMoney(value) {
   return `R$ ${Number(value || 0).toLocaleString('pt-BR', {
@@ -93,30 +91,11 @@ function addCanvasToPdf(pdf, sourceCanvas, hasContent) {
   return shouldAddPage;
 }
 
-function SummaryMetric({ label, value, color = 'var(--text-primary)' }) {
-  return (
-    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '12px' }}>
-      <p style={{ margin: '0 0 5px', color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: '600' }}>{label}</p>
-      <strong style={{ color, fontSize: '0.95rem' }}>{formatMoney(value)}</strong>
-    </div>
-  );
-}
-
-function InsightMetric({ label, value, helper, color = 'var(--text-primary)' }) {
-  return (
-    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '12px' }}>
-      <p style={{ margin: '0 0 5px', color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: '600' }}>{label}</p>
-      <strong style={{ color, fontSize: '0.95rem' }}>{value}</strong>
-      {helper && <p style={{ margin: '5px 0 0', color: 'var(--text-tertiary)', fontSize: '0.7rem', lineHeight: 1.35 }}>{helper}</p>}
-    </div>
-  );
-}
-
 export default function Report() {
   const [allExpenses, setAllExpenses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [filterMode, setFilterMode] = usePageState('filterMode', 'all');
+  const [filterMode, setFilterMode] = usePageState('filterMode', 'month');
   const [currentDate, setCurrentDate] = usePageState('month', () => new Date());
   const [isExporting, setIsExporting] = useState(false);
   const [isPro, setIsPro] = useState(getCachedProStatus);
@@ -300,204 +279,15 @@ export default function Report() {
   };
 
   return (
-    <div className="animate-fade-up" data-navigation-loading={isLoading}>
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>Relatórios</h1>
-      </header>
-
-      <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', gap: '8px', padding: '12px' }}>
-        <button
-          type="button"
-          onClick={() => setFilterMode('all')}
-          disabled={isExporting}
-          style={{
-            flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
-            background: filterMode === 'all' ? 'var(--color-emerald-primary)' : 'transparent',
-            color: filterMode === 'all' ? '#fff' : 'var(--text-secondary)', fontWeight: '600',
-            cursor: isExporting ? 'not-allowed' : 'pointer', opacity: isExporting ? 0.65 : 1,
-          }}
-        >
-          Geral
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilterMode('month')}
-          disabled={isExporting}
-          style={{
-            flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
-            background: filterMode === 'month' ? 'var(--color-emerald-primary)' : 'transparent',
-            color: filterMode === 'month' ? '#fff' : 'var(--text-secondary)', fontWeight: '600',
-            cursor: isExporting ? 'not-allowed' : 'pointer', opacity: isExporting ? 0.65 : 1,
-          }}
-        >
-          Por Mês
-        </button>
-      </div>
-
-      {filterMode === 'month' && (
-        <div className="glass-card animate-fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', marginBottom: '16px' }}>
-          <button type="button" aria-label="Mês anterior" onClick={() => changeMonth(-1)} disabled={isExporting} style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', opacity: isExporting ? 0.5 : 1 }}>
-            <ChevronLeft size={24} />
-          </button>
-          <h2 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0, fontWeight: '600' }}>
-            {MONTH_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}
-          </h2>
-          <button type="button" aria-label="Próximo mês" onClick={() => changeMonth(1)} disabled={isExporting} style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', opacity: isExporting ? 0.5 : 1 }}>
-            <ChevronRight size={24} />
-          </button>
-        </div>
-      )}
-
-      <section className="glass-card" style={{ marginBottom: '24px', padding: '20px' }}>
-        <h2 style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: '1.08rem' }}>{reportTitle}</h2>
-        <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px', fontSize: '0.84rem', lineHeight: 1.45 }}>{periodDescription}</p>
-        <button type="button" onClick={handleExportPDF} className="btn-primary" style={{ width: '100%' }} disabled={isExporting || displayedExpenses.length === 0}>
-          {isExporting ? 'Gerando PDF...' : 'Exportar & Compartilhar'}
-        </button>
-      </section>
-
-      {filterMode === 'month' && (
-        <section className="glass-card" style={{ marginBottom: '24px', padding: '20px', border: isPro ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--glass-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
-            <div>
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)', fontSize: '1.05rem' }}>
-                <Sparkles size={19} color="var(--color-emerald-primary)" /> Insights avançados
-              </h2>
-              <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.4 }}>
-                Comparativo e previsão para {selectedMonthLabel}.
-              </p>
-            </div>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 8px', borderRadius: '999px', background: isPro ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-secondary)', color: isPro ? 'var(--color-emerald-dark)' : 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: '700', whiteSpace: 'nowrap' }}>
-              {isPro ? <Sparkles size={13} /> : <Lock size={13} />} {isPro ? 'PRO' : 'RECURSO PRO'}
-            </span>
-          </div>
-
-          {isPro ? (
-            displayedExpenses.length > 0 ? (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '10px' }}>
-                  <InsightMetric
-                    label="PREVISÃO DE FECHAMENTO"
-                    value={formatSignedMoney(monthlyInsights.projectedBalance)}
-                    color={monthlyInsights.projectedBalance >= 0 ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)'}
-                    helper="Considera receitas, pagamentos, pendências e planejamentos."
-                  />
-                  <InsightMetric
-                    label="AINDA COMPROMETIDO"
-                    value={formatMoney(monthlyInsights.pendingAndPlanned)}
-                    color={monthlyInsights.pendingAndPlanned > 0 ? '#b45309' : 'var(--color-emerald-dark)'}
-                    helper="Despesas a pagar e planejadas."
-                  />
-                </div>
-
-                <div style={{ marginTop: '14px', borderRadius: '12px', background: 'var(--bg-secondary)', padding: '14px' }}>
-                  <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start' }}>
-                    {expenseComparison.direction === 'down'
-                      ? <TrendingDown size={19} color="var(--color-emerald-primary)" style={{ flexShrink: 0, marginTop: '1px' }} />
-                      : <TrendingUp size={19} color={expenseComparison.direction === 'up' ? 'var(--color-crimson-dark)' : 'var(--text-secondary)'} style={{ flexShrink: 0, marginTop: '1px' }} />}
-                    <div>
-                      <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.86rem', fontWeight: '700' }}>Comparativo de despesas previstas</p>
-                      <p style={{ margin: '4px 0 0', color: expenseComparisonColor, fontSize: '0.8rem', lineHeight: 1.45 }}>{expenseComparisonText}</p>
-                      <p style={{ margin: '5px 0 0', color: 'var(--text-tertiary)', fontSize: '0.72rem' }}>Em {selectedMonthLabel}: {formatMoney(monthlyInsights.expectedExpenses)}.</p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '14px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
-                <CalendarClock size={20} color="var(--color-emerald-primary)" style={{ flexShrink: 0, marginTop: '1px' }} />
-                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5 }}>Adicione lançamentos em {selectedMonthLabel} para ver a previsão de fechamento e comparar com o mês anterior.</p>
-              </div>
-            )
-          ) : (
-            <div style={{ padding: '16px', borderRadius: '12px', background: 'var(--bg-secondary)' }}>
-              <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5 }}>Veja como suas despesas mudaram de um mês para outro e quanto deve sobrar no fechamento, considerando tudo o que já foi lançado.</p>
-              <button type="button" onClick={showProModal} className="btn-primary" style={{ width: '100%' }}>Desbloquear insights PRO</button>
-            </div>
-          )}
-        </section>
-      )}
-
-      {loadError && (
-        <div className="glass-card" role="alert" style={{ border: '1px solid rgba(244, 63, 94, 0.35)', marginBottom: '24px' }}>
-          <h2 style={{ color: 'var(--color-crimson-dark)', fontSize: '1rem', marginBottom: '8px' }}>Não foi possível carregar os relatórios</h2>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Verifique o armazenamento do dispositivo e tente abrir a página novamente.</p>
-        </div>
-      )}
-
-      {displayedExpenses.length === 0 && !loadError && (
-        <div className="glass-card" style={{ textAlign: 'center', padding: '32px 16px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>📊</div>
-          <h2 style={{ color: 'var(--text-primary)', marginBottom: '8px', fontSize: '1.05rem' }}>Nenhum lançamento no período</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>Altere o mês ou adicione novas receitas e despesas para gerar o relatório.</p>
-        </div>
-      )}
-
-      {displayedExpenses.length > 0 && (
-        <>
-          <section className="glass-card" style={{ marginBottom: '24px', padding: '20px' }}>
-            <h2 style={{ margin: '0 0 14px', color: 'var(--text-primary)', fontSize: '1.05rem' }}>Resumo financeiro</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
-              <SummaryMetric label="Receitas lançadas" value={summary.incomeTotal} color="var(--color-emerald-dark)" />
-              <SummaryMetric label="Despesas pagas" value={summary.paidExpenseTotal} color="var(--color-crimson-dark)" />
-              <SummaryMetric label="A pagar" value={summary.unpaidExpenseTotal} color="var(--color-crimson-dark)" />
-              <SummaryMetric label="Planejadas" value={summary.plannedExpenseTotal} color="#b45309" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '14px' }}>
-              <div style={{ padding: '14px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.08)' }}>
-                <p style={{ margin: '0 0 5px', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '600' }}>SALDO REALIZADO</p>
-                <strong style={{ color: summary.cashBalance >= 0 ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)' }}>{formatSignedMoney(summary.cashBalance)}</strong>
-              </div>
-              <div style={{ padding: '14px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.09)' }}>
-                <p style={{ margin: '0 0 5px', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '600' }}>SALDO PREVISTO</p>
-                <strong style={{ color: summary.projectedBalance >= 0 ? '#047857' : 'var(--color-crimson-dark)' }}>{formatSignedMoney(summary.projectedBalance)}</strong>
-              </div>
-            </div>
-          </section>
-
-          {summary.registeredExpenseTotal > 0 && (
-            <section className="glass-card animate-fade-up" style={{ marginBottom: '24px', padding: '20px' }}>
-              <h2 style={{ margin: '0 0 6px', color: 'var(--text-primary)', fontSize: '1.05rem', textAlign: 'center' }}>Distribuição de despesas</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', textAlign: 'center', margin: '0 0 4px' }}>Pagas e a pagar: {formatMoney(summary.registeredExpenseTotal)}</p>
-              <p style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem', textAlign: 'center', margin: '0 0 14px' }}>Planejamentos são exibidos separadamente no resumo.</p>
-              <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={categoryEntries.map(([categoryId, amount]) => ({ name: getCategory(categoryId).label, value: amount }))} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" stroke="none">
-                      {categoryEntries.map(([,], index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-shadow)', color: 'var(--text-primary)' }} itemStyle={{ fontWeight: '600' }} formatter={(value, name) => [formatMoney(value), name]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-          )}
-
-          {summary.registeredExpenseTotal > 0 && (
-            <section className="glass-card" style={{ marginBottom: '32px', padding: '20px' }}>
-              <h2 style={{ marginBottom: '6px', color: 'var(--text-primary)', fontSize: '1.05rem' }}>Despesas por categoria</h2>
-              <p style={{ margin: '0 0 16px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Inclui despesas pagas e a pagar.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {categoryEntries.map(([categoryId, amount]) => {
-                  const category = getCategory(categoryId);
-                  const percent = (amount / summary.registeredExpenseTotal) * 100;
-                  return (
-                    <div key={categoryId}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px', fontSize: '0.88rem' }}>
-                        <span style={{ color: 'var(--text-primary)' }}>{category.icon} {category.label}</span>
-                        <span style={{ color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>{formatMoney(amount)} ({percent.toFixed(1)}%)</span>
-                      </div>
-                      <div style={{ width: '100%', height: '8px', background: 'rgba(15, 23, 42, 0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: `${percent}%`, height: '100%', background: 'var(--color-crimson-primary)', borderRadius: '4px' }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-        </>
-      )}
+    <div className="report-page animate-fade-up" data-navigation-loading={isLoading}>
+      <ReportSummary
+        filterMode={filterMode} setFilterMode={setFilterMode} selectedMonthLabel={selectedMonthLabel}
+        changeMonth={changeMonth} isExporting={isExporting} onExport={handleExportPDF}
+        isLoading={isLoading} loadError={loadError} summary={summary} categoryEntries={categoryEntries}
+        hasExpenses={displayedExpenses.length > 0} isPro={isPro} showProModal={showProModal}
+        monthlyInsights={monthlyInsights} expenseComparison={expenseComparison}
+        expenseComparisonText={expenseComparisonText} expenseComparisonColor={expenseComparisonColor}
+      />
 
       <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         {chunks.map((chunk, pageIndex) => (

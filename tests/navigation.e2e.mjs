@@ -66,8 +66,8 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       });
       await page.getByRole('button', { name: 'Próximo mês', exact: true }).click();
       await page.locator('a[href^="/expense/"]').first().waitFor();
-      assert.equal(await page.locator('a[href^="/expense/"]').count(), 6);
-      await page.getByRole('button', { name: 'Ver todos os 60 lançamentos', exact: true }).click();
+      assert.equal(await page.locator('a[href^="/expense/"]').count(), 60);
+      assert.equal(await page.getByRole('button', { name: /Ver todos os .* lançamentos/ }).count(), 0);
       const heading = await page.locator('h3').filter({ hasText: /\d{4}/ }).first().textContent();
       const row = page.locator('a[href^="/expense/"]').nth(25);
       await row.scrollIntoViewIfNeeded();
@@ -102,15 +102,17 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       await page.locator('a[href="/report"]').first().click();
       await page.getByRole('button', { name: 'Por Mês', exact: true }).click();
       await page.getByRole('button', { name: 'Próximo mês', exact: true }).click();
-      await page.getByRole('heading', { name: `Relatório - ${heading}`, exact: true }).waitFor();
+      await page.getByRole('heading', { name: heading, exact: true }).waitFor();
       await ready(page);
-      await page.locator('tr').nth(25).scrollIntoViewIfNeeded();
+      await page.locator('.report-composition summary').click();
+      await page.getByRole('region', { name: 'Previsão e comparativo', exact: true }).scrollIntoViewIfNeeded();
       const reportPosition = await page.evaluate(() => window.scrollY);
       await page.locator('a[href="/profile"]').first().click();
-      await page.getByRole('heading', { name: 'Configurações', exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Perfil', exact: true }).waitFor();
       await page.goBack();
-      await page.getByRole('heading', { name: `Relatório - ${heading}`, exact: true }).waitFor();
+      await page.getByRole('heading', { name: heading, exact: true }).waitFor();
       await ready(page);
+      assert.equal(await page.locator('.report-composition').getAttribute('open'), '');
       await expectPosition(page, reportPosition);
 
       // Editar uma meta também retorna à página anterior e atualiza a lista.
@@ -123,7 +125,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       await page.getByRole('button', { name: 'OK', exact: true }).click();
       await page.getByText('Meta atualizada', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'Voltar', exact: true }).click();
-      await page.getByRole('heading', { name: 'Configurações', exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Perfil', exact: true }).waitFor();
 
       // Voltar ao chat não deve forçar a conversa para a última mensagem.
       await page.locator('a[href="/chat"]').first().click();
@@ -133,7 +135,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       const chatPosition = await page.locator('[data-navigation-scroll="chat-messages"]').evaluate((element) => element.scrollTop);
       assert.ok(chatPosition > 500);
       await page.locator('a[href="/profile"]').first().click();
-      await page.getByRole('heading', { name: 'Configurações', exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Perfil', exact: true }).waitFor();
       await page.goBack();
       await page.getByText('Mensagem de teste 59', { exact: true }).waitFor();
       await ready(page);
@@ -151,7 +153,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       await page.getByRole('button', { name: 'Voltar', exact: true }).click();
       await expectPosition(page, helpPosition);
       await page.getByRole('button', { name: 'Voltar', exact: true }).click();
-      await page.getByRole('heading', { name: 'Configurações', exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Perfil', exact: true }).waitFor();
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();
@@ -169,4 +171,22 @@ test('link direto usa um destino interno ao voltar', async () => {
   } finally {
     await browser.close();
   }
+});
+
+test('voltar preserva a posição mesmo ao abrir um link imediatamente após rolar', async () => {
+  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto(`${origin}/help`);
+    await ready(page);
+    const position = await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      const y = window.scrollY;
+      document.querySelector('a[href="/privacy"]').click();
+      return y;
+    });
+    assert.ok(position > 0);
+    await page.getByRole('button', { name: 'Voltar', exact: true }).click();
+    await page.waitForFunction(y => Math.abs(window.scrollY - y) < 5, position, { timeout: 5000 });
+  } finally { await browser.close(); }
 });

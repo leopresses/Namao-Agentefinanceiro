@@ -90,6 +90,31 @@ test('assinatura inválida não altera a conta', async () => {
   assert.equal(user(), undefined);
 });
 
+test('ausência do segredo bloqueia notificações mesmo para pagamento aprovado', async () => {
+  payment();
+  delete process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  assert.equal((await invoke(webhook, signedRequest('payment-1'))).status, 503);
+  assert.equal(user(), undefined);
+  assert.equal((await invoke(checkout, { method: 'POST', headers: { authorization: 'Bearer simulation-token' }, body: { planType: 'mensal' } })).status, 503);
+  assert.equal(state.preferences.length, 0);
+});
+
+test('assinatura vincula ID na URL ao corpo e aceita normalização alfanumérica', async () => {
+  payment('PAYMENT-A');
+  assert.equal((await invoke(webhook, signedRequest('PAYMENT-A'))).status, 200);
+  reset(); payment();
+  const mismatched = signedRequest('payment-1');
+  mismatched.body.data.id = 'other-payment';
+  assert.equal((await invoke(webhook, mismatched)).status, 401);
+  assert.equal((await invoke(webhook, signedRequest('payment-1', { query: {} }))).status, 401);
+  assert.equal(user(), undefined);
+});
+
+test('plano com nome herdado do protótipo é recusado', async () => {
+  assert.equal((await invoke(checkout, { method: 'POST', headers: { authorization: 'Bearer simulation-token' }, body: { planType: '__proto__' } })).status, 400);
+  assert.equal(state.preferences.length, 0);
+});
+
 test('falha do provedor retorna erro para permitir nova tentativa', async () => {
   state.providerError = new Error('Falha simulada do provedor.');
   assert.equal((await invoke(webhook, signedRequest('payment-1'))).status, 500);

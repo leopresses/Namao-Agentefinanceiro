@@ -1,100 +1,31 @@
-import { useState, useEffect } from 'react';
-import { HelpCircle, X } from 'lucide-react';
-import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, ArrowUpRight, BookOpen, HelpCircle, Route, X } from 'lucide-react';
+import HelpQuestions from './HelpQuestions';
 
 export default function HelpModal() {
-  const [isOpen, setIsOpen] = useState(false);
-  const isDesktop = useMediaQuery('(min-width: 768px)');
-
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(() => !localStorage.getItem('namao_has_seen_help'));
+  const [expanded, setExpanded] = useState('balance');
+  const dialogRef = useRef(null);
   useEffect(() => {
-    const hasSeenHelp = localStorage.getItem('namao_has_seen_help');
-    if (!hasSeenHelp) {
-      setIsOpen(true);
-      localStorage.setItem('namao_has_seen_help', 'true');
-    }
-  }, []);
-
-  if (!isOpen) {
-    return (
-      <button 
-        onClick={() => setIsOpen(true)}
-        className="glass-card"
-        style={{
-          position: 'fixed',
-          top: isDesktop ? 'auto' : '20px',
-          bottom: isDesktop ? '24px' : 'auto',
-          left: 'auto',
-          right: isDesktop ? '32px' : '20px',
-          width: '36px',
-          height: '36px',
-          borderRadius: '18px',
-          padding: 0,
-          background: 'var(--glass-bg)',
-          backdropFilter: 'blur(8px)',
-          color: 'var(--text-secondary)',
-          border: '1px solid var(--glass-border)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          boxShadow: 'var(--glass-shadow)',
-          zIndex: 1000,
-          cursor: 'pointer'
-        }}
-        aria-label="Ajuda"
-      >
-        <HelpCircle size={20} />
-      </button>
-    );
-  }
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 23, 42, 0.4)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 2000,
-      padding: '24px'
-    }}>
-      <div className="glass-card animate-fade-up" style={{ width: '100%', maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', background: 'var(--bg-primary)' }}>
-        <button 
-          onClick={() => setIsOpen(false)}
-          style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--text-secondary)' }}
-        >
-          <X size={24} />
-        </button>
-        
-        <h2 style={{ marginBottom: '16px', color: 'var(--color-emerald-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <HelpCircle size={24} /> Ajuda Rápida
-        </h2>
-        
-        <div style={{ color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.6' }}>
-          <p style={{ marginBottom: '12px' }}>
-            O <strong>NaMão</strong> é o seu Agente Financeiro Inteligente. Veja tudo o que você pode fazer:
-          </p>
-          <ul style={{ paddingLeft: '20px', marginBottom: '16px', fontSize: '0.85rem' }}>
-            <li style={{ marginBottom: '8px' }}><strong>➕ Lançamentos:</strong> Use o botão central para adicionar Rendas ou Despesas. O Saldo do Mês considera as rendas e as despesas já pagas.</li>
-            <li style={{ marginBottom: '8px' }}><strong>🔄 Recorrência e Parcelas:</strong> Você pode repetir uma conta ativando o "Switch" e escolhendo entre Parcelado ou Fixo.</li>
-            <li style={{ marginBottom: '8px' }}><strong>📅 Planejamento Futuro:</strong> Marque a situação como "Planejado" para anotar gastos futuros. Eles não descontam do seu saldo atual.</li>
-            <li style={{ marginBottom: '8px' }}><strong>🎯 Orçamentos e Metas:</strong> Os limites mensais somam despesas pagas e a pagar. O valor guardado em uma meta é separado dos seus lançamentos.</li>
-            <li style={{ marginBottom: '8px' }}><strong>☁️ Sincronização e Offline:</strong> Seus lançamentos ficam disponíveis sem internet neste dispositivo. O backup e a sincronização automática na nuvem são recursos do NaMão Pro.</li>
-            <li style={{ marginBottom: '8px' }}><strong>📊 Relatórios:</strong> Confira o saldo realizado e o previsto por mês; o relatório geral reúne os lançamentos até hoje e pode ser exportado em PDF.</li>
-            <li style={{ marginBottom: '8px' }}><strong>🌙 Ajustes do App:</strong> Escolha o tema claro ou escuro e, em dispositivos compatíveis, ative o App Lock biométrico. Ele bloqueia novamente quando o app fica em segundo plano.</li>
-          </ul>
-          
-          <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '0.85rem' }}>
-            <strong>🤖 Inteligência Artificial Integrada</strong><br />
-            Acesse a aba "Chat" para conversar com a <strong>NaMão IA</strong>. Ela lê seus dados financeiros e te dá conselhos personalizados, análises de gastos e tira dúvidas sobre economia!
-          </div>
-        </div>
-        
-        <button onClick={() => setIsOpen(false)} className="btn-primary" style={{ width: '100%', marginTop: '24px' }}>
-          Entendi, vamos lá!
-        </button>
-      </div>
-    </div>
-  );
+    const dialog = dialogRef.current;
+    if (isOpen && !dialog.open) { dialog.showModal(); localStorage.setItem('namao_has_seen_help', 'true'); }
+    else if (!isOpen && dialog.open) dialog.close();
+  }, [isOpen]);
+  const startTour = () => {
+    setIsOpen(false);
+    window.requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('namao_start_tour')));
+  };
+  return <>
+    <button type="button" className="quick-help-trigger" aria-label="Ajuda" onClick={() => setIsOpen(true)}><HelpCircle size={21} aria-hidden="true" /></button>
+    <dialog ref={dialogRef} className="quick-help-dialog modern-dialog" aria-labelledby="quick-help-title" onCancel={() => setIsOpen(false)} onClose={() => setIsOpen(false)}>
+      <header className="quick-help-header"><div className="app-title"><img src="/logo.png?v=20260901" className="logo-icon" alt="" />NaMão</div><button type="button" className="modern-icon-button" aria-label="Fechar ajuda rápida" onClick={() => setIsOpen(false)}><X size={23} aria-hidden="true" /></button></header>
+      <h2 id="quick-help-title" className="help-title">Ajuda rápida</h2><p className="help-intro">Uma dúvida de cada vez. Veja como aproveitar o NaMão.</p>
+      <button type="button" className="help-tour-entry" onClick={startTour}><Route size={23} aria-hidden="true" /><span><strong>Conheça o app em 6 passos</strong><small>Tour guiado · você pode pular quando quiser</small></span><ArrowRight size={18} aria-hidden="true" /></button>
+      <h3 className="help-section-label">Dúvidas frequentes</h3><HelpQuestions compact expanded={expanded} onChange={setExpanded} group="quick-help" />
+      <button type="button" className="help-more" onClick={() => { setIsOpen(false); navigate('/help'); }}><BookOpen size={18} aria-hidden="true" /><span>Ver central de ajuda</span><ArrowUpRight size={17} aria-hidden="true" /></button>
+      <button type="button" className="btn-primary help-understood" onClick={() => setIsOpen(false)}>Entendi, vamos lá!</button><p className="help-footnote">A ajuda continua disponível no botão ?</p>
+    </dialog>
+  </>;
 }

@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Token inválido ou expirado.' });
   }
 
-  const plan = PLANS[req.body?.planType];
+  const plan = Object.hasOwn(PLANS, req.body?.planType) ? PLANS[req.body.planType] : null;
   if (!plan) {
     return res.status(400).json({ error: 'Plano inválido.' });
   }
@@ -46,6 +46,10 @@ export default async function handler(req, res) {
   const mpAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!mpAccessToken) {
     return res.status(500).json({ error: 'Mercado Pago não configurado no servidor.' });
+  }
+  // Não iniciar uma compra quando o servidor não poderá validar a confirmação.
+  if (!process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim()) {
+    return res.status(503).json({ error: 'Pagamentos temporariamente indisponíveis. Tente novamente mais tarde.' });
   }
 
   const appOrigin = getAppOrigin();

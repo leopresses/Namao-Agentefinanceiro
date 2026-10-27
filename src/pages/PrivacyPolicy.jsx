@@ -1,9 +1,10 @@
-import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 import { Link } from 'react-router-dom';
 import { useGoBack } from '../contexts/NavigationContext';
 import { PRIVACY_EMAIL } from '../config/legal';
 
-const updatedAt = '20 de agosto de 2026';
+const updatedAt = '27 de outubro de 2026';
 
 function Section({ title, children }) {
   return (
@@ -18,11 +19,8 @@ export default function PrivacyPolicy() {
   const goBack = useGoBack('/login');
 
   return (
-    <main className="animate-fade-up" style={{ maxWidth: '760px', margin: '0 auto', padding: '24px 0 48px' }}>
-      <button type="button" onClick={goBack} style={{ background: 'transparent', color: 'var(--text-secondary)', padding: '8px 0', marginBottom: '12px' }}>
-        <ArrowLeft size={20} /> Voltar
-      </button>
-
+    <main className="modern-page modern-legal">
+      <PageHeader title="Privacidade" onBack={goBack} />
       <article className="glass-card">
         <header style={{ marginBottom: '28px', paddingBottom: '20px', borderBottom: '1px solid var(--glass-border)' }}>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontSize: '1.5rem', marginBottom: '8px' }}>
@@ -71,6 +69,7 @@ export default function PrivacyPolicy() {
 
         <Section title="7. Segurança">
           <p>Adotamos medidas técnicas e administrativas razoáveis para reduzir riscos de acesso não autorizado, incluindo autenticação de conta, regras de acesso no banco de dados e comunicação protegida pelos provedores. Nenhum sistema conectado à internet é totalmente isento de riscos; por isso, proteja seu aparelho e sua conta Google.</p>
+          <p style={{ marginTop: '10px' }}>O bloqueio por biometria protege a abertura da tela. Ele não criptografa os lançamentos e conversas salvos neste navegador. Use também o bloqueio do sistema e evite dispositivos compartilhados.</p>
         </Section>
 
         <Section title="8. Seus direitos">

@@ -104,17 +104,17 @@ const BottomNav = () => {
           type="button"
           aria-label={showMenu ? 'Fechar menu de lançamentos' : 'Abrir menu de lançamentos'}
           aria-expanded={showMenu}
-          aria-controls="mobile-action-menu"
+          aria-controls="mobile-action-menu" data-tour="add"
           onClick={toggleMenu}
           className={`bottom-nav-add${showMenu ? ' is-open' : ''}`}
         >
           <Plus size={28} aria-hidden="true" />
         </button>
 
-        <NavLink to="/chat" aria-label="NaMão IA" className="bottom-nav-link">
+        <NavLink to="/chat" data-tour="ai-link" aria-label="NaMão IA" className="bottom-nav-link">
           <Bot size={22} aria-hidden="true" /><span>IA</span>
         </NavLink>
-        <NavLink to="/profile" aria-label="Perfil" className="bottom-nav-link">
+        <NavLink to="/profile" data-tour="profile-link" aria-label="Perfil" className="bottom-nav-link">
           <User size={22} aria-hidden="true" /><span>Perfil</span>
         </NavLink>
       </nav>

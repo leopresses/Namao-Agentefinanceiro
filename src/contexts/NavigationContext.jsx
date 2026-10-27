@@ -64,6 +64,9 @@ export function NavigationProvider({ children }) {
     observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-navigation-loading'] });
     resizeObserver.observe(root);
     window.addEventListener('scroll', saveScroll, { passive: true, capture: true });
+    // Registra a posição antes de um clique trocar a página, inclusive quando
+    // o navegador ainda não despachou o último evento de rolagem.
+    window.addEventListener('click', saveScroll, true);
     // Uma interação do usuário tem prioridade sobre a restauração pendente.
     window.addEventListener('wheel', stopRestoring, { passive: true });
     window.addEventListener('touchstart', stopRestoring, { passive: true });
@@ -72,6 +75,7 @@ export function NavigationProvider({ children }) {
     return () => {
       stopRestoring();
       window.removeEventListener('scroll', saveScroll, true);
+      window.removeEventListener('click', saveScroll, true);
       window.removeEventListener('wheel', stopRestoring);
       window.removeEventListener('touchstart', stopRestoring);
     };

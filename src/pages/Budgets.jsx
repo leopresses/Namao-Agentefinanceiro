@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PageHeader from '../components/PageHeader';
 import { useGoBack } from '../contexts/NavigationContext';
 import { getBudgets, saveBudget } from '../services/db';
 import { CATEGORIES } from '../utils/categories';
@@ -49,56 +50,12 @@ export default function Budgets() {
     }
   };
 
-  return (
-    <div className="animate-fade-up">
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack} style={{ cursor: 'pointer' }}>{'<'}</button>
-        <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', textAlign: 'center', flex: 1, marginRight: '48px' }}>
-          Limites de Orçamento
-        </h1>
-      </header>
-
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '16px', textAlign: 'center' }}>
-        Defina um teto mensal para cada categoria. Acompanhe os valores comprometidos no painel e no momento de lançar uma despesa.
-      </p>
-
-      <div className="glass-card" style={{ padding: '0' }}>
-        {CATEGORIES.map((cat, index) => {
-          const limit = budgets[cat.id];
-          const hasLimit = limit > 0;
-
-          return (
-            <div 
-              key={cat.id}
-              onClick={() => handleSetLimit(cat.id, cat.label)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '16px 20px', cursor: 'pointer',
-                borderBottom: index < CATEGORIES.length - 1 ? '1px solid var(--glass-border)' : 'none',
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '1.5rem' }}>{cat.icon}</span>
-                <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{cat.label}</span>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                {hasLimit ? (
-                  <span style={{ color: 'var(--color-crimson-primary)', fontWeight: '600' }}>
-                    R$ {limit.toFixed(2).replace('.', ',')}
-                  </span>
-                ) : (
-                  <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
-                    Sem limite
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+  return <div className="modern-page">
+    <PageHeader title="Limites de Orçamento" onBack={goBack} />
+    <p className="modern-subtitle">Defina um teto mensal por categoria. O painel considera despesas pagas e pendentes, sem planejamentos.</p>
+    <div className="budget-list">{CATEGORIES.map(cat => {
+      const limit = Number(budgets[cat.id]) || 0;
+      return <button type="button" key={cat.id} className="budget-row" onClick={() => handleSetLimit(cat.id, cat.label)} aria-label={`Definir limite de ${cat.label}`}><span className="budget-category"><span aria-hidden="true">{cat.icon}</span>{cat.label}</span><span className={`budget-limit${limit > 0 ? '' : ' unset'}`}>{limit > 0 ? `R$ ${limit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Sem limite'}</span></button>;
+    })}</div>
+  </div>;
 }

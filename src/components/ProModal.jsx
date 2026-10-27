@@ -153,7 +153,7 @@ export default function ProModal({ isOpen, onClose }) {
 
         <div style={{ textAlign: 'center', marginTop: '16px' }}>
           <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-            Pagamento avulso processado pelo Mercado Pago. O acesso mensal dura 30 dias e o anual, 365 dias. *Uso responsável da IA.
+            Pagamento avulso processado pelo Mercado Pago. O acesso mensal dura 30 dias e o anual, 365 dias. *O chat PRO não tem cota mensal. Chat e voz compartilham até 6 solicitações por minuto e 60 por hora, com até 2 simultâneas. A voz permite até 20 lançamentos por hora.
           </span>
         </div>
         <button type="button" onClick={onClose} style={{ width: '100%', marginTop: '12px', padding: '10px', background: 'transparent', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>

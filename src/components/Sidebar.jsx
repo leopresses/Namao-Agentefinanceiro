@@ -46,17 +46,17 @@ const Sidebar = () => {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
           <NavLink to="/" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <Home size={24} />
-            <span>Dashboard</span>
+            <span>Início</span>
           </NavLink>
           <NavLink to="/report" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <FileText size={24} />
-            <span>Relatórios</span>
+            <span>Resumo</span>
           </NavLink>
-          <NavLink to="/chat" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+          <NavLink to="/chat" data-tour="ai-link" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <Bot size={24} />
             <span>NaMão IA</span>
           </NavLink>
-          <NavLink to="/profile" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+          <NavLink to="/profile" data-tour="profile-link" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <User size={24} />
             <span>Perfil</span>
           </NavLink>
@@ -102,7 +102,7 @@ const Sidebar = () => {
         <button
           type="button"
           aria-expanded={showDesktopMenu}
-          aria-controls="desktop-action-menu"
+          aria-controls="desktop-action-menu" data-tour="add"
           onClick={toggleMenu} 
           className="btn-primary"
           style={{ 

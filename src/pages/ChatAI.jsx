@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { getChatList, getChatById, getActiveChatId, setActiveChatId, createChat, addMessageToChat, deleteChat } from '../services/chatDb';
 import { getCachedProStatus, getIdToken, getUserProStatus, onAuthChange } from '../services/firebase';
-import { MessageSquarePlus, History, Trash2, X, Sparkles } from 'lucide-react';
+import ChatView from '../components/ChatView';
 import { useDialog } from '../contexts/DialogContext';
 import { buildFinancialContext } from '../utils/financialContext';
 import { IS_LOCAL_TEST_MODE } from '../config/environment';
@@ -78,6 +78,7 @@ export default function ChatAI() {
     activeChatIdRef.current = chat.id;
     setActiveChatIdState(chat.id);
     setMessages(chat.messages);
+    setInput('');
     setActiveChatId(chat.id);
     refreshChatList();
     setShowHistory(false);
@@ -108,6 +109,7 @@ export default function ChatAI() {
       activeChatIdRef.current = chat.id;
       setActiveChatIdState(chat.id);
       setMessages(chat.messages);
+      setInput('');
       setActiveChatId(chat.id);
       setShowHistory(false);
     }
@@ -157,15 +159,15 @@ export default function ChatAI() {
     setIsTyping(false);
   }, []);
 
-  const handleSend = async () => {
-    if (input.trim() === '' || sendLockRef.current) return;
+  const handleSend = async (suggestedText) => {
+    const userText = (typeof suggestedText === 'string' ? suggestedText : input).trim();
+    if (!userText || sendLockRef.current) return;
 
     if (!proStatus.isPro && proStatus.aiMessageCount >= 5) {
       showProModal();
       return;
     }
 
-    const userText = input.trim();
     const userMsg = { id: Date.now(), text: userText, sender: 'user' };
     const chatIdAtSend = activeChatIdRef.current;
     if (!chatIdAtSend) return;
@@ -281,7 +283,7 @@ export default function ChatAI() {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSend();
     }
@@ -302,214 +304,12 @@ export default function ChatAI() {
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   };
 
-  return (
-    <div className="chat-container animate-fade-up" data-navigation-loading={isLoading}>
-      {/* Header */}
-      <header className="app-header glass" style={{ marginBottom: '16px', marginTop: '32px', position: 'relative' }}>
-        <h1 className="app-title" style={{ fontSize: '1.2rem' }}>NaMão IA</h1>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button 
-            onClick={() => setShowHistory(!showHistory)}
-            disabled={isTyping}
-            style={{ 
-              background: showHistory ? 'var(--color-emerald-primary)' : 'transparent', 
-              border: 'none', 
-              padding: '8px', 
-              borderRadius: '12px',
-              color: showHistory ? '#fff' : 'var(--text-secondary)',
-              transition: '0.2s'
-            }}
-            title="Histórico de conversas"
-          >
-            <History size={20} />
-          </button>
-          <button 
-            onClick={startNewChat}
-            disabled={isTyping}
-            style={{ 
-              background: 'transparent', 
-              border: 'none', 
-              padding: '8px', 
-              borderRadius: '12px',
-              color: 'var(--color-emerald-primary)'
-            }}
-            title="Nova conversa"
-          >
-            <MessageSquarePlus size={20} />
-          </button>
-        </div>
-      </header>
-
-      {/* Painel de Histórico */}
-      {showHistory && (
-        <div style={{
-          position: 'absolute',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'var(--bg-primary)',
-          zIndex: 50,
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '24px',
-          animation: 'fadeUp 0.3s ease forwards'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <History size={22} color="var(--color-emerald-primary)" />
-              Histórico de Conversas
-            </h2>
-            <button 
-              onClick={() => setShowHistory(false)}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', padding: '8px' }}
-            >
-              <X size={22} />
-            </button>
-          </div>
-
-          <div data-navigation-scroll="chat-history" style={{ flex: 1, overflowY: 'auto' }}>
-            {chatList.length === 0 ? (
-              <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginTop: '40px' }}>
-                Nenhuma conversa encontrada.
-              </p>
-            ) : (
-              chatList.map(chat => (
-                <div 
-                  key={chat.id}
-                  onClick={() => switchToChat(chat.id)}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '16px',
-                    borderRadius: '16px',
-                    marginBottom: '8px',
-                    cursor: 'pointer',
-                    background: chat.id === activeChatId ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-secondary)',
-                    border: chat.id === activeChatId ? '1px solid var(--color-emerald-primary)' : '1px solid var(--glass-border)',
-                    transition: '0.2s'
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ 
-                      margin: 0, 
-                      color: 'var(--text-primary)', 
-                      fontSize: '0.95rem',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {chat.title}
-                    </h4>
-                    <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                      {chat.messageCount} mensagens · {formatDate(chat.updatedAt)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => handleDeleteChat(chat.id, e)}
-                    style={{ 
-                      background: 'transparent', 
-                      border: 'none', 
-                      color: 'var(--text-secondary)', 
-                      padding: '8px',
-                      flexShrink: 0,
-                      borderRadius: '8px'
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          <button onClick={startNewChat} className="btn-primary" style={{ width: '100%', marginTop: '16px' }}>
-            <MessageSquarePlus size={18} /> Nova Conversa
-          </button>
-        </div>
-      )}
-
-      {/* Área de Mensagens */}
-      <div data-navigation-scroll="chat-messages" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '16px' }}>
-        {messages.map(msg => (
-          <div key={msg.id} style={{ 
-            alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', 
-            maxWidth: '85%',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', marginLeft: msg.sender === 'user' ? 'auto' : '8px', marginRight: msg.sender === 'user' ? '8px' : '0' }}>
-              {msg.sender === 'user' ? 'Você' : 'Agente'}
-            </span>
-            <div className="glass-card" style={{ 
-              padding: '16px', 
-              borderRadius: msg.sender === 'user' ? '24px 24px 4px 24px' : '24px 24px 24px 4px',
-              background: msg.sender === 'user' ? 'var(--color-emerald-primary)' : (msg.isError ? 'rgba(244, 63, 94, 0.08)' : 'var(--bg-secondary)'),
-              color: msg.sender === 'user' ? '#fff' : 'var(--text-primary)',
-              border: msg.sender === 'user' ? 'none' : (msg.isError ? '1px solid rgba(244, 63, 94, 0.28)' : '1px solid var(--glass-border)'),
-              boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)'
-            }}>
-              <p style={{ margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{msg.text}</p>
-            </div>
-          </div>
-        ))}
-        {isTyping && (
-          <div style={{ alignSelf: 'flex-start', marginLeft: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>O Agente está digitando...</span>
-            <button onClick={cancelChatResponse} style={{ border: 'none', background: 'transparent', color: 'var(--color-crimson-primary)', fontSize: '0.8rem', padding: '4px', cursor: 'pointer' }}>
-              Cancelar
-            </button>
-          </div>
-        )}
-        <div ref={messagesEndRef} data-navigation-scroll-end />
-      </div>
-
-      {/* Input de Mensagem */}
-      <div className="chat-input-area" style={{ padding: '0 0 16px 0' }}>
-        {!proStatus.isPro && (
-          <div style={{ 
-            fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '8px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
-          }}>
-            <Sparkles size={12} color="var(--color-emerald-primary)"/>
-            {proStatus.aiMessageCount >= 5 ? 
-              'Limite gratuito de 5/5 mensagens atingido.' : 
-              `${proStatus.aiMessageCount}/5 mensagens gratuitas enviadas este mês.`
-            }
-          </div>
-        )}
-        <div className="glass-card" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', padding: '12px 16px', borderRadius: '24px', background: 'var(--bg-secondary)' }}>
-          <textarea 
-            placeholder={
-              !proStatus.isPro && proStatus.aiMessageCount >= 5 
-                ? "Limite grátis atingido" 
-                : "Pergunte qualquer coisa..."
-            }
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            style={{ 
-              flex: 1, 
-              background: 'transparent', 
-              border: 'none', 
-              color: 'var(--text-primary)', 
-              fontFamily: 'Inter', 
-              fontSize: '1rem',
-              resize: 'none',
-              minHeight: '44px',
-              maxHeight: '120px',
-              outline: 'none',
-              paddingTop: '12px'
-            }} 
-          />
-          <button 
-            onClick={handleSend} 
-            className="btn-primary" 
-            style={{ padding: '0', width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            disabled={isTyping}
-          >
-            ➔
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return <ChatView
+    messages={messages} isLoading={isLoading} input={input} setInput={setInput}
+    isTyping={isTyping} proStatus={proStatus} messagesEndRef={messagesEndRef}
+    showHistory={showHistory} setShowHistory={setShowHistory} chatList={chatList}
+    activeChatId={activeChatId} startNewChat={startNewChat} switchToChat={switchToChat}
+    handleDeleteChat={handleDeleteChat} handleSend={handleSend} handleKeyPress={handleKeyPress}
+    cancelChatResponse={cancelChatResponse} formatDate={formatDate} showProModal={showProModal}
+  />;
 }

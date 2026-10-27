@@ -14,8 +14,11 @@ service cloud.firestore {
 
       // Dados pessoais sincronizados ficam isolados dos privilégios do usuário.
       match /private/backup {
-        allow read, write: if request.auth != null
+        // Recuperação e exclusão continuam disponíveis mesmo após o PRO expirar.
+        allow read, delete: if request.auth != null
                            && request.auth.uid == userId;
+        // Somente /api/backup grava: valida o PRO, esquema, tamanho e revisão.
+        allow create, update: if false;
       }
     }
   }

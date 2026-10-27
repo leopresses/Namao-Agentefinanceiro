@@ -9,34 +9,38 @@ const PLANS = {
 
 function isValidSignature(req) {
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-  if (!secret) return true;
+  if (!secret) return false;
 
   const signature = req.headers['x-signature'];
   const requestId = req.headers['x-request-id'] || '';
-  const paymentId = String(req.body?.data?.id || '');
-  if (!signature || !paymentId) return false;
+  const paymentId = String(req.query?.['data.id'] || '').toLowerCase();
+  const bodyId = String(req.body?.data?.id || '').toLowerCase();
+  if (typeof signature !== 'string' || typeof requestId !== 'string' || !requestId
+    || !paymentId || paymentId !== bodyId) return false;
 
   const values = Object.fromEntries(
     signature.split(',').map((part) => part.trim().split('='))
   );
-  if (!values.ts || !values.v1) return false;
+  if (!/^\d+$/.test(values.ts || '') || !/^[a-fA-F0-9]{64}$/.test(values.v1 || '')) return false;
 
   const manifest = `id:${paymentId};request-id:${requestId};ts:${values.ts};`;
   const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
-  const received = values.v1;
-  if (expected.length !== received.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
+  return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(values.v1, 'hex'));
 }
 
 function parseReference(reference) {
   const [uid, planId, ...rest] = String(reference || '').split(':');
-  if (!uid || !PLANS[planId] || rest.length > 0) return null;
+  if (!uid || !Object.hasOwn(PLANS, planId) || rest.length > 0) return null;
   return { uid, planId, plan: PLANS[planId] };
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido.' });
+  }
+  if (!process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim()) {
+    console.error('[Webhook MP] Segredo de assinatura não configurado.');
+    return res.status(503).send('Notificações de pagamento temporariamente indisponíveis');
   }
   if (!isValidSignature(req)) {
     return res.status(401).json({ error: 'Assinatura do webhook inválida.' });

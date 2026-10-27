@@ -1,6 +1,7 @@
 import { generateChatReply, getChatFailure, validateChatPayload } from './_lib/chatGeneration.js';
 import { getAdminAuth, getAdminDb } from './_lib/firebaseAdmin.js';
 import { getBearerToken, handleCors } from './_lib/http.js';
+import { withAiRateLimit } from './_lib/aiRateLimit.js';
 
 const FREE_MONTHLY_MESSAGES = 5;
 function getBrazilMonthKey(date = new Date()) {
@@ -99,31 +100,33 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Erro de configuração do servidor.' });
   }
 
-  let access;
-  try {
-    access = await reserveChatMessage(getAdminDb(), decodedUser.uid);
-  } catch (error) {
-    console.error('Falha ao verificar a cota da IA:', error.message);
-    return res.status(503).json({ error: 'Não foi possível verificar sua cota agora. Tente novamente.' });
-  }
-
-  if (!access.allowed) {
-    return res.status(403).json({ error: 'Limite de mensagens gratuitas atingido. Assine o plano Pro para continuar.' });
-  }
-
-  try {
-    const text = await generateChatReply(validated.payload, { apiKey });
-    return res.status(200).json({ text });
-  } catch (error) {
-    if (!access.isPro) {
-      try {
-        await releaseChatMessage(getAdminDb(), decodedUser.uid);
-      } catch (releaseError) {
-        console.error('Falha ao devolver a cota da IA:', releaseError.message);
-      }
+  return withAiRateLimit(getAdminDb(), decodedUser.uid, res, async () => {
+    let access;
+    try {
+      access = await reserveChatMessage(getAdminDb(), decodedUser.uid);
+    } catch (error) {
+      console.error('Falha ao verificar a cota da IA:', error.message);
+      return res.status(503).json({ error: 'Não foi possível verificar sua cota agora. Tente novamente.' });
     }
-    const failure = getChatFailure(error);
-    console.error('Falha na IA:', { code: failure.code, providerStatus: error.status || null });
-    return res.status(failure.status).json({ error: failure.error, code: failure.code });
-  }
+
+    if (!access.allowed) {
+      return res.status(403).json({ error: 'Limite de mensagens gratuitas atingido. Assine o plano Pro para continuar.' });
+    }
+
+    try {
+      const text = await generateChatReply(validated.payload, { apiKey });
+      return res.status(200).json({ text });
+    } catch (error) {
+      if (!access.isPro) {
+        try {
+          await releaseChatMessage(getAdminDb(), decodedUser.uid);
+        } catch (releaseError) {
+          console.error('Falha ao devolver a cota da IA:', releaseError.message);
+        }
+      }
+      const failure = getChatFailure(error);
+      console.error('Falha na IA:', { code: failure.code, providerStatus: error.status || null });
+      return res.status(failure.status).json({ error: failure.error, code: failure.code });
+    }
+  });
 }

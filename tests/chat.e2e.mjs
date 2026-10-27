@@ -33,10 +33,10 @@ test('chat mostra a resposta e permite tentar novamente após erro do servidor',
     await openChat(page);
     const input = page.locator('textarea');
     await input.fill('Como economizar?');
-    await page.getByRole('button', { name: '➔', exact: true }).click();
+    await page.getByRole('button', { name: 'Enviar mensagem', exact: true }).click();
     await page.getByText('A IA está com muitas solicitações no momento. Tente novamente em instantes.', { exact: true }).waitFor();
     await input.fill('Tente novamente.');
-    await page.getByRole('button', { name: '➔', exact: true }).click();
+    await page.getByRole('button', { name: 'Enviar mensagem', exact: true }).click();
     await page.getByText('Uma meta de exemplo é reservar 20%', { exact: true }).waitFor();
     assert.equal(calls, 2);
   } finally { await browser.close(); }
@@ -50,12 +50,12 @@ test('tempo limite informa o usuário e libera o envio; cancelamento continua si
     await page.route('**/api/chat', () => {});
     await openChat(page);
     await page.locator('textarea').fill('Olá.');
-    await page.getByRole('button', { name: '➔', exact: true }).click();
+    await page.getByRole('button', { name: 'Enviar mensagem', exact: true }).click();
     await page.getByText('O Agente está digitando...', { exact: true }).waitFor();
     await page.clock.fastForward(66000);
     await page.getByText('A IA demorou para responder. Tente novamente em instantes.', { exact: true }).waitFor();
     await page.locator('textarea').fill('Nova tentativa.');
-    await page.getByRole('button', { name: '➔', exact: true }).click();
+    await page.getByRole('button', { name: 'Enviar mensagem', exact: true }).click();
     await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
     assert.equal(await page.getByText('O Agente está digitando...', { exact: true }).count(), 0);
   } finally { await browser.close(); }
@@ -77,7 +77,7 @@ test('IA real no localhost responde usando somente dados fictícios', { skip: pr
     });
     const responsePromise = page.waitForResponse((response) => response.url().endsWith('/api/chat') && response.request().method() === 'POST', { timeout: 65000 });
     await page.locator('textarea').fill('Nos dados fictícios deste teste, quanto recebi e quanto gastei em mercado neste mês? Responda brevemente.');
-    await page.getByRole('button', { name: '➔', exact: true }).click();
+    await page.getByRole('button', { name: 'Enviar mensagem', exact: true }).click();
     const response = await responsePromise;
     const data = await response.json();
     assert.equal(response.status(), 200, data.error);

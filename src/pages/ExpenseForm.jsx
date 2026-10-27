@@ -5,8 +5,7 @@ import { useDialog } from '../contexts/DialogContext';
 import { CATEGORIES } from '../utils/categories';
 import { parseBrazilianCurrency } from '../utils/currency';
 import { useGoBack } from '../contexts/NavigationContext';
-import BackButton from '../components/BackButton';
-import RecurrenceScopeDialog from '../components/RecurrenceScopeDialog';
+import ExpenseEditor from '../components/ExpenseEditor';
 
 function formatLocalDate(d) {
   const year = d.getFullYear();
@@ -232,196 +231,14 @@ export default function ExpenseForm() {
     }
   };
 
-  return (
-    <div className="animate-fade-up" data-navigation-loading={isLoading}>
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
-        <BackButton onClick={goBack} />
-        <h1 style={{ fontSize: '1.2rem', color: isIncome ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)' }}>
-          {isEditing ? 'Editar Lançamento' : (isIncome ? 'Nova Renda' : 'Nova Despesa')}
-        </h1>
-        <span className="back-button-spacer" aria-hidden="true" />
-      </header>
-
-      <div className="glass-card">
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label className="input-label">Descrição</label>
-            <input 
-              type="text"
-              placeholder="ex: Salário, Aluguel" 
-              className="input-field" 
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required 
-            />
-          </div>
-
-          <div className="input-group">
-            <label className="input-label">Categoria</label>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '8px' }}>
-              {CATEGORIES.map(cat => (
-                <div 
-                  key={cat.id}
-                  onClick={() => setCategory(cat.id)}
-                  style={{ 
-                    padding: '8px 16px', borderRadius: '20px', cursor: 'pointer',
-                    background: category === cat.id ? 'var(--color-emerald-primary)' : 'var(--bg-secondary)',
-                    color: category === cat.id ? '#fff' : 'var(--text-primary)',
-                    border: `1px solid ${category === cat.id ? 'var(--color-emerald-primary)' : 'var(--glass-border)'}`,
-                    transition: '0.2s', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px'
-                  }}
-                >
-                  {cat.icon} {cat.label}
-                </div>
-              ))}
-            </div>
-            
-            {budgetLimit > 0 && !isIncome && (
-              <div style={{ marginTop: '12px', padding: '12px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '0.85rem' }}>
-                <div style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>
-                  Orçamento Mensal: <strong>R$ {budgetLimit.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>
-                </div>
-                <div style={{ color: 'var(--text-secondary)' }}>
-                  Já gasto: R$ {currentSpent.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                </div>
-                {status !== 'planned' && (currentSpent + (parseBrazilianCurrency(amount) || 0)) > budgetLimit && (
-                  <div style={{ color: 'var(--color-crimson-primary)', fontWeight: 'bold', marginTop: '8px', display: 'flex', gap: '6px' }}>
-                    <span>⚠️</span> Ultrapassará o limite
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="input-group">
-            <label className="input-label">Valor (R$)</label>
-            <input 
-              type="text"
-              inputMode="decimal"
-              placeholder="0,00"
-              className="input-field" 
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required 
-            />
-          </div>
-          <div className="input-group">
-            <label className="input-label">Data</label>
-            <input 
-              type="date" 
-              className="input-field" 
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required 
-            />
-          </div>
-          
-          {!isEditing && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '24px', marginBottom: '8px' }}>
-              <span className="input-label" style={{ marginBottom: 0, fontSize: '1.1rem' }}>Repetir</span>
-              <div 
-                onClick={() => setIsRecurring(!isRecurring)}
-                style={{
-                  width: '50px', height: '28px', borderRadius: '14px',
-                  background: isRecurring ? 'var(--color-emerald-primary)' : '#ccc',
-                  position: 'relative', cursor: 'pointer', transition: '0.3s'
-                }}
-              >
-                <div style={{
-                  width: '24px', height: '24px', borderRadius: '50%', background: '#fff',
-                  position: 'absolute', top: '2px', left: isRecurring ? '24px' : '2px',
-                  transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }} />
-              </div>
-            </div>
-          )}
-
-          {!isEditing && isRecurring && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px', marginLeft: '4px', marginBottom: '24px' }}>
-              <div 
-                onClick={() => setRecurrenceType('fixa')}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '24px', height: '24px', borderRadius: '50%',
-                  border: `2px solid ${recurrenceType === 'fixa' ? 'var(--color-emerald-primary)' : '#ccc'}`,
-                  display: 'flex', justifyContent: 'center', alignItems: 'center',
-                  transition: '0.2s'
-                }}>
-                  {recurrenceType === 'fixa' && <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--color-emerald-primary)' }} />}
-                </div>
-                <span style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>Fixo</span>
-              </div>
-
-              <div 
-                onClick={() => setRecurrenceType('parcelada')}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '24px', height: '24px', borderRadius: '50%',
-                  border: `2px solid ${recurrenceType === 'parcelada' ? 'var(--color-emerald-primary)' : '#ccc'}`,
-                  display: 'flex', justifyContent: 'center', alignItems: 'center',
-                  transition: '0.2s'
-                }}>
-                  {recurrenceType === 'parcelada' && <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--color-emerald-primary)' }} />}
-                </div>
-                <span style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>Parcelado</span>
-              </div>
-            </div>
-          )}
-
-          {!isEditing && isRecurring && recurrenceType === 'parcelada' && (
-            <div className="input-group">
-              <label className="input-label">Número de Parcelas</label>
-              <input 
-                type="number" 
-                min="2" max="120"
-                className="input-field" 
-                value={installments}
-                onChange={(e) => setInstallments(e.target.value)}
-                required 
-              />
-            </div>
-          )}
-
-          {!isEditing && isRecurring && recurrenceType === 'fixa' && (
-            <div className="input-group" style={{ background: 'rgba(244, 63, 94, 0.05)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
-              <label className="input-label" style={{ color: 'var(--color-crimson-dark)' }}>Projetar por quantos meses?</label>
-              <input 
-                type="number" 
-                min="2" max="240"
-                className="input-field" 
-                value={fixedMonths}
-                onChange={(e) => setFixedMonths(e.target.value)}
-                required 
-              />
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
-                * Por padrão, criamos o lançamento nos próximos 12 meses para evitar acúmulo infinito de dados no celular. Você pode aumentar ou diminuir esse prazo.
-              </p>
-            </div>
-          )}
-
-          {!isIncome && (
-            <div className="input-group" style={{ marginTop: '16px' }}>
-              <label className="input-label">Situação</label>
-              <select 
-                className="input-field" 
-                value={status} 
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="paid">Paga (Já foi paga)</option>
-                <option value="unpaid">A Pagar (Fatura em aberto)</option>
-                <option value="planned">Planejamento / Lembrete Futuro</option>
-              </select>
-            </div>
-          )}
-
-          <button type="submit" disabled={isSaving} className={isIncome ? 'btn-primary' : 'btn-danger'} style={{ width: '100%', marginTop: '16px' }}>
-            {isSaving ? 'Salvando...' : isEditing ? 'Atualizar Lançamento' : 'Salvar'}
-          </button>
-        </form>
-      </div>
-      {showScopeDialog && <RecurrenceScopeDialog onChoose={chooseScope} />}
-    </div>
-  );
+  return <ExpenseEditor
+    isLoading={isLoading} goBack={goBack} isEditing={isEditing} isIncome={isIncome}
+    handleSubmit={handleSubmit} description={description} setDescription={setDescription}
+    category={category} setCategory={setCategory} amount={amount} setAmount={setAmount}
+    date={date} setDate={setDate} status={status} setStatus={setStatus}
+    isRecurring={isRecurring} setIsRecurring={setIsRecurring} recurrenceType={recurrenceType}
+    setRecurrenceType={setRecurrenceType} installments={installments} setInstallments={setInstallments}
+    fixedMonths={fixedMonths} setFixedMonths={setFixedMonths} budgetLimit={budgetLimit}
+    currentSpent={currentSpent} isSaving={isSaving} showScopeDialog={showScopeDialog} chooseScope={chooseScope}
+  />;
 }

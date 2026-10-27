@@ -61,8 +61,7 @@ for (const [plan, status, title] of [
         await route.fulfill({ status: 302, headers: { location: `${origin}/?payment=${outcome}` }, body: '' });
       });
       await page.goto(origin);
-      // O banner tem animação contínua; o clique não precisa aguardar estabilidade.
-      await page.getByRole('heading', { name: 'Seja PRO Agora', exact: true }).click({ force: true });
+      await page.getByRole('button', { name: /^Conheça o NaMão PRO/ }).click();
       await page.getByRole('button', { name: plan === 'anual' ? /Escolher plano anual/ : /Plano mensal/ }).click();
       await page.getByRole('heading', { name: 'Checkout simulado' }).waitFor();
       assert.equal(state.preferences.length, 1);
@@ -71,7 +70,7 @@ for (const [plan, status, title] of [
       assert.equal(user()?.isPro === true, status === 'approved');
       await page.screenshot({ path: join(tmpdir(), `namao-payment-${plan}-${status}.png`), fullPage: true });
       await page.getByRole('button', { name: 'OK', exact: true }).click();
-      assert.equal(await page.getByRole('heading', { name: 'Seja PRO Agora', exact: true }).count(), status === 'approved' ? 0 : 1);
+      assert.equal(await page.getByRole('button', { name: /^Conheça o NaMão PRO/ }).count(), status === 'approved' ? 0 : 1);
       assert.deepEqual(errors, []);
     } finally { await browser.close(); }
   });
@@ -86,6 +85,6 @@ test('retorno success sem aprovação no servidor não libera PRO', async () => 
     await page.goto(`${origin}/?payment=success`);
     await page.getByRole('heading', { name: 'Pagamento recebido', exact: true }).waitFor();
     assert.equal(user(), undefined);
-    assert.equal(await page.getByRole('heading', { name: 'Seja PRO Agora', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: /^Conheça o NaMão PRO/ }).count(), 1);
   } finally { await browser.close(); }
 });

@@ -1,7 +1,8 @@
 // Firebase - Configuração protegida via variáveis de ambiente do Vite
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, getDoc, deleteDoc, runTransaction } from "firebase/firestore";
+import { getFirestore, doc, getDoc, deleteDoc } from "firebase/firestore";
+import { validateBackupInput } from '../../shared/backupValidation';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -109,21 +110,23 @@ function getBackupRevision(data, source = 'private') {
   return data.backupRevision || data.lastBackup || `legacy-${source}`;
 }
 
-function hasLegacyFinancialData(data) {
-  return !!(data?.expenses || data?.chats || data?.budgets || data?.goals);
+function readBackupData(data, source = 'private') {
+  const payload = {
+    expenses: data.expenses ?? [], chats: data.chats ?? [],
+    budgets: data.budgets ?? {}, goals: data.goals ?? [],
+  };
+  const validated = validateBackupInput(payload);
+  if (validated.error) throw new Error('A cópia na nuvem contém dados inválidos. Seus dados locais foram preservados.');
+  return { ...payload, revision: getBackupRevision(data, source) };
 }
 
 export const saveCloudBackup = async (expensesData, chatsData, budgetsData, goalsData, expectedRevision = null) => {
   const uid = getSecureUserId();
   if (!uid) throw new Error("Usuário não autenticado");
 
-  const backupRef = doc(db, 'users', uid, 'private', 'backup');
-  const legacyRef = doc(db, 'users', uid);
-  const backupRevision = crypto.randomUUID();
   const payload = {
     expenses: expensesData || [],
-    lastBackup: new Date().toISOString(),
-    backupRevision,
+    expectedRevision,
   };
   if (chatsData !== undefined) {
     payload.chats = chatsData;
@@ -135,21 +138,18 @@ export const saveCloudBackup = async (expensesData, chatsData, budgetsData, goal
     payload.goals = goalsData;
   }
 
-  // O Firestore limita documentos a 1 MiB. Reservamos margem para metadados.
-  if (new Blob([JSON.stringify(payload)]).size > 850000) {
-    throw new Error('O backup ficou grande demais. Exclua conversas antigas e tente novamente.');
-  }
-
-  await runTransaction(db, async (transaction) => {
-    const current = await transaction.get(backupRef);
-    const legacy = current.exists() ? null : await transaction.get(legacyRef);
-    const currentRevision = current.exists()
-      ? getBackupRevision(current.data())
-      : hasLegacyFinancialData(legacy?.data()) ? getBackupRevision(legacy.data(), 'root') : null;
-    if (currentRevision !== expectedRevision) throw new BackupConflictError(currentRevision);
-    transaction.set(backupRef, payload, { merge: true });
+  const validated = validateBackupInput(payload);
+  if (validated.error) throw new Error(validated.error);
+  const token = await getIdToken();
+  const response = await fetch('/api/backup', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
-  return backupRevision;
+  const result = await response.json();
+  if (response.status === 409 && result.code === 'BACKUP_CONFLICT') throw new BackupConflictError(result.currentRevision);
+  if (!response.ok) throw new Error(result.error || 'Não foi possível salvar o backup agora.');
+  return result.backupRevision;
 };
 
 export const loadCloudBackup = async () => {
@@ -161,13 +161,7 @@ export const loadCloudBackup = async () => {
   
   if (docSnap.exists()) {
     const data = docSnap.data();
-    return {
-      expenses: data.expenses || [],
-      chats: data.chats || null,
-      budgets: data.budgets || {},
-      goals: data.goals || [],
-      revision: getBackupRevision(data),
-    };
+    return readBackupData(data);
   }
 
   // Compatibilidade com backups gravados antes da separação de privilégios.
@@ -175,13 +169,7 @@ export const loadCloudBackup = async () => {
   if (legacySnap.exists()) {
     const legacy = legacySnap.data();
     if (legacy.expenses || legacy.chats || legacy.budgets || legacy.goals) {
-      return {
-        expenses: legacy.expenses || [],
-        chats: legacy.chats || null,
-        budgets: legacy.budgets || {},
-        goals: legacy.goals || [],
-        revision: getBackupRevision(legacy, 'root'),
-      };
+      return readBackupData(legacy, 'root');
     }
   }
 

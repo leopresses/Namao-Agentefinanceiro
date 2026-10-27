@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import Login from './pages/Login';
 import BottomNav from './components/BottomNav';
 import HelpModal from './components/HelpModal';
+import GuidedTour from './components/GuidedTour';
+import './pages/ModernPages.css';
 import PwaPrompt from './components/PwaPrompt';
 import Sidebar from './components/Sidebar';
 import BiometricLock from './components/BiometricLock';
@@ -16,7 +18,7 @@ import { WifiOff, RefreshCw } from 'lucide-react';
 import { applyTheme, getStoredTheme } from './utils/theme';
 import { IS_LOCAL_TEST_MODE } from './config/environment';
 
-// Relatórios carrega bibliotecas grandes (PDF e gráficos). As telas são
+// A exportação de relatórios usa bibliotecas grandes de PDF. As telas são
 // carregadas sob demanda para a primeira abertura ficar leve no celular.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ExpenseForm = lazy(() => import('./pages/ExpenseForm'));
@@ -167,6 +169,7 @@ function App() {
       )}
       </BiometricLock>
       
+      <GuidedTour />
       {!hideNav && <HelpModal />}
       {!hideNav && <PwaPrompt />}
       {!hideNav && <SyncStatusBadge />}

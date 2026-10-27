@@ -1,5 +1,6 @@
 import { getAdminAuth, getAdminDb } from './_lib/firebaseAdmin.js';
 import { getBearerToken, handleCors } from './_lib/http.js';
+import { isAdministrator } from './_lib/adminIdentity.js';
 
 const GRANT_DURATIONS = {
   '30': 30,
@@ -10,11 +11,6 @@ const MAX_LISTED_USERS = 100;
 
 function normalizeEmail(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
-}
-
-function isAdministrator(user) {
-  const adminEmail = normalizeEmail(process.env.ADMIN_EMAIL);
-  return Boolean(adminEmail && normalizeEmail(user.email) === adminEmail);
 }
 
 function isActivePro(data, now = Date.now()) {

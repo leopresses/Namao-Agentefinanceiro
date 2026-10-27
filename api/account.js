@@ -1,5 +1,6 @@
 import { getAdminAuth, getAdminDb } from './_lib/firebaseAdmin.js';
 import { getBearerToken, handleCors } from './_lib/http.js';
+import { isAdministrator } from './_lib/adminIdentity.js';
 
 function isActivePro(data) {
   if (!data?.isPro) return false;
@@ -22,9 +23,7 @@ export default async function handler(req, res) {
   try {
     const decodedUser = await getAdminAuth().verifyIdToken(idToken);
     const ref = getAdminDb().collection('users').doc(decodedUser.uid);
-    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-
-    if (adminEmail && decodedUser.email?.toLowerCase() === adminEmail) {
+    if (isAdministrator(decodedUser)) {
       await ref.set({ isPro: true, planType: 'admin' }, { merge: true });
     }
 

@@ -68,7 +68,6 @@
 .dashboard-expense-row.is-income .dashboard-expense-amount > span, .dashboard-expense-row.is-income .dashboard-category-icon { color: var(--color-emerald-dark); }
 .dashboard-expense-row.is-planned .dashboard-expense-amount small { color: #a65b05; }
 :root[data-theme='dark'] .dashboard-expense-row.is-planned .dashboard-expense-amount small { color: #fbbf24; }
-.dashboard-show-all { display: flex; min-height: 44px; padding: 11px 12px; margin: 8px auto 0; color: var(--color-emerald-dark); background: transparent; font-size: 0.78rem; }
 .dashboard a:focus-visible, .dashboard button:focus-visible { outline: 3px solid var(--color-emerald-dark); outline-offset: -3px; }
 @media (max-width: 360px) {
   .mobile-layout:has(.dashboard) { padding-left: 14px; padding-right: 14px; }

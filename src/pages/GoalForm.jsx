@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { addGoal, updateGoal, deleteGoal, getGoals } from '../services/db';
 import { useDialog } from '../contexts/DialogContext';
 import { Trash2 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 import { parseBrazilianCurrency } from '../utils/currency';
 import { useGoBack } from '../contexts/NavigationContext';
 
@@ -127,45 +128,21 @@ export default function GoalForm() {
   };
 
   return (
-    <div className="animate-fade-up" data-navigation-loading={isLoading}>
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px', display: 'flex', alignItems: 'center' }}>
-        <button type="button" aria-label="Voltar" className="btn-icon" onClick={goBack} style={{ cursor: 'pointer' }}>{'<'}</button>
-        <h1 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', textAlign: 'center', flex: 1, marginRight: isEditing ? '0' : '48px' }}>
-          {isEditing ? 'Editar Meta' : 'Nova Meta'}
-        </h1>
-        {isEditing && (
-          <div className="btn-icon" onClick={handleDelete} style={{ cursor: 'pointer', color: 'var(--color-crimson-primary)' }}>
-            <Trash2 size={20} />
-          </div>
-        )}
-      </header>
+    <div className="modern-page" data-navigation-loading={isLoading}>
+      <PageHeader title={isEditing ? 'Editar Meta' : 'Nova Meta'} onBack={goBack} />
 
       <div className="glass-card">
         <form onSubmit={handleSubmit}>
           
           <div className="input-group">
             <label className="input-label">Ícone</label>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '8px' }}>
-              {EMOJIS.map(emj => (
-                <div 
-                  key={emj}
-                  onClick={() => setIcon(emj)}
-                  style={{ 
-                    padding: '8px 12px', borderRadius: '16px', cursor: 'pointer', fontSize: '1.5rem',
-                    background: icon === emj ? 'var(--color-emerald-primary)' : 'var(--bg-secondary)',
-                    border: `1px solid ${icon === emj ? 'var(--color-emerald-primary)' : 'var(--glass-border)'}`,
-                    transition: '0.2s'
-                  }}
-                >
-                  {emj}
-                </div>
-              ))}
-            </div>
+            <div className="goal-icon-picker" role="group" aria-label="Ícone da meta">{EMOJIS.map(emj => <button type="button" key={emj} aria-label={`Ícone ${emj}`} aria-pressed={icon === emj} onClick={() => setIcon(emj)}>{emj}</button>)}</div>
           </div>
 
           <div className="input-group">
-            <label className="input-label">Nome da Meta</label>
+            <label className="input-label" htmlFor="goal-title">Nome da Meta</label>
             <input 
+              id="goal-title"
               type="text" 
               placeholder="ex: Viagem para Paris" 
               className="input-field" 
@@ -176,8 +153,9 @@ export default function GoalForm() {
           </div>
 
           <div className="input-group">
-            <label className="input-label">Objetivo Final (R$)</label>
+            <label className="input-label" htmlFor="goal-target">Objetivo Final (R$)</label>
             <input 
+              id="goal-target"
               type="text" 
               inputMode="decimal"
               placeholder="10000,00"
@@ -188,16 +166,16 @@ export default function GoalForm() {
             />
           </div>
 
-          <div className="input-group" style={{ padding: '16px', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-            <label className="input-label" style={{ color: 'var(--color-emerald-dark)' }}>Valor Guardado (R$)</label>
+          <div className="input-group goal-savings-field">
+            <label className="input-label" htmlFor="goal-current" style={{ color: 'var(--color-emerald-dark)' }}>Valor Guardado (R$)</label>
             <input 
+              id="goal-current"
               type="text" 
               inputMode="decimal"
               placeholder="0,00"
               className="input-field" 
               value={currentAmount}
               onChange={(e) => setCurrentAmount(e.target.value)}
-              style={{ background: 'var(--bg-primary)', borderColor: 'var(--glass-border)' }}
             />
             {isEditing && (
               <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
@@ -209,8 +187,9 @@ export default function GoalForm() {
           </div>
 
           <div className="input-group">
-            <label className="input-label">Prazo (Opcional)</label>
+            <label className="input-label" htmlFor="goal-deadline">Prazo (Opcional)</label>
             <input 
+              id="goal-deadline"
               type="date" 
               className="input-field" 
               value={deadline}

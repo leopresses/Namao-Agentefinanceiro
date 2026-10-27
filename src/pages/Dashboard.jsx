@@ -49,12 +49,10 @@ export default function Dashboard() {
   const [categoryFilter, setCategoryFilter] = usePageState('categoryFilter', 'all');
   const [statusFilter, setStatusFilter] = usePageState('statusFilter', 'all');
   const [categoryFiltersOpen, setCategoryFiltersOpen] = usePageState('categoryFiltersOpen', false);
-  const [showAllExpenses, setShowAllExpenses] = usePageState('showAllExpenses', false);
   const visibleExpenses = useMemo(() => filterExpenseList(displayedExpenses, {
     search, category: categoryFilter, status: statusFilter,
   }), [displayedExpenses, search, categoryFilter, statusFilter]);
   const hasFilters = !!search || categoryFilter !== 'all' || statusFilter !== 'all';
-  const listExpenses = showAllExpenses ? visibleExpenses : visibleExpenses.slice(0, 6);
   const clearFilters = () => {
     setSearch('');
     setCategoryFilter('all');
@@ -236,13 +234,13 @@ export default function Dashboard() {
           onClick={showProModal}
         >
           <Star size={18} aria-hidden="true" />
-          <span><strong>Conheça o NaMão PRO</strong><small>IA ilimitada e backup na nuvem</small></span>
+          <span><strong>Conheça o NaMão PRO</strong><small>IA sem cota mensal e backup na nuvem</small></span>
           <ChevronRight size={20} aria-hidden="true" />
         </button>
       )}
 
       {/* Seletor de Mês */}
-      <div className="dashboard-month">
+      <div className="dashboard-month" data-tour="month">
         <button type="button" aria-label="Mês anterior" onClick={() => changeMonth(-1)}>
           <ChevronLeft size={22} aria-hidden="true" />
         </button>
@@ -269,7 +267,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="monthly-summary" aria-live="polite" aria-atomic="true">
+      <div className="monthly-summary" data-tour="balance" aria-live="polite" aria-atomic="true">
         <section className="glass-card monthly-summary-card" aria-labelledby="monthly-balance-title">
           <h2 id="monthly-balance-title">Saldo do Mês</h2>
           <p className={`monthly-summary-value ${balance < 0 ? 'negative' : 'positive'}`}>{formatSummaryMoney(balance)}</p>
@@ -378,7 +376,7 @@ export default function Dashboard() {
         </div>
       )}
       
-      <section className="dashboard-transactions" aria-label="Lançamentos do mês">
+      <section className="dashboard-transactions" data-tour="transactions" aria-label="Lançamentos do mês">
         <div className="dashboard-list-heading">
           <h3>Lançamentos</h3>
           <p aria-live="polite">{hasFilters ? `${visibleExpenses.length} de ${displayedExpenses.length}` : displayedExpenses.length} {visibleExpenses.length === 1 ? 'item' : 'itens'}</p>
@@ -422,7 +420,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="dashboard-expense-list">
-            {listExpenses.map((exp) => {
+            {visibleExpenses.map((exp) => {
               const isIncome = exp.type === 'income';
               const isPaid = exp.status === 'paid';
               const isPlanned = exp.status === 'planned';
@@ -433,7 +431,7 @@ export default function Dashboard() {
               const statusText = isIncome ? (isPaid ? 'Recebido' : 'A receber') : isPaid ? 'Pago' : isPlanned ? 'Planejado' : 'Pendente';
 
               return (
-                <Link to={`/expense/${exp.id}`} key={exp.id} className={`expense-list-item dashboard-expense-row${isIncome ? ' is-income' : ''}${isPlanned ? ' is-planned' : ''}`}>
+                <Link to={`/expense/${exp.id}`} key={exp.id} data-tour={exp.type === 'expense' ? 'expense' : undefined} className={`expense-list-item dashboard-expense-row${isIncome ? ' is-income' : ''}${isPlanned ? ' is-planned' : ''}`}>
                   <span className="dashboard-category-icon"><CategoryIcon size={19} aria-hidden="true" /></span>
                   <div className="dashboard-expense-description">
                     <h4>{exp.description}</h4>
@@ -448,9 +446,6 @@ export default function Dashboard() {
             })}
           </div>
         )}
-        {visibleExpenses.length > 6 && <button type="button" className="dashboard-show-all" aria-expanded={showAllExpenses} onClick={() => setShowAllExpenses((showAll) => !showAll)}>
-          {showAllExpenses ? 'Mostrar menos' : `Ver todos os ${visibleExpenses.length} lançamentos`}
-        </button>}
       </section>
     </div>
   );

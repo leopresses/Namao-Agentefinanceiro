@@ -89,8 +89,8 @@ export default function ExpenseDetails() {
   const statusLabel = isIncome ? 'Recebido' : isPaid ? 'Pago' : isPlanned ? 'Planejado' : 'Pendente';
 
   return (
-    <div className="expense-details">
-      <header className="app-header glass expense-detail-header">
+    <div className="expense-details modern-page">
+      <header className="app-header expense-detail-header">
         <BackButton onClick={goBack} />
         <h1>Detalhamento</h1>
         <span className="back-button-spacer" aria-hidden="true" />
