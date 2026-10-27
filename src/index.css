@@ -341,6 +341,18 @@ button:active {
   background: var(--color-crimson-dark);
 }
 
+/* Resumo do mês: compromissos lançados e previsão com planejamentos. */
+.monthly-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.monthly-summary-card { padding: 18px 14px; text-align: center; min-width: 0; }
+.monthly-summary-card h2 { font-size: 0.8rem; color: var(--text-secondary); }
+.monthly-summary-value { margin-top: 8px; font-size: clamp(1.05rem, 4.7vw, 1.4rem); font-weight: 700; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.monthly-summary-caption { margin: 8px auto 0; max-width: 210px; font-size: 0.7rem; line-height: 1.4; color: var(--text-secondary); }
+.monthly-summary .positive { color: var(--color-emerald-dark); }
+.monthly-summary .negative { color: var(--color-crimson-dark); }
+.monthly-planned-summary { grid-column: 1 / -1; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--glass-border); background: var(--glass-bg); }
+.monthly-planned-summary p { font-size: 0.85rem; line-height: 1.4; }
+.monthly-planned-summary span { display: block; margin-top: 4px; font-size: 0.75rem; line-height: 1.4; color: var(--text-secondary); }
+
 /* Busca e filtros dos lançamentos */
 .expense-filters { padding: 16px; margin-bottom: 16px; }
 .expense-search {

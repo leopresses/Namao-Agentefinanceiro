@@ -60,18 +60,40 @@ export default async function handler(req, res) {
     if (!reference) throw new Error('Referência de pagamento inválida.');
 
     const paidAmount = Number(payment.transaction_amount);
-    if (payment.currency_id !== 'BRL' || Math.abs(paidAmount - reference.plan.price) > 0.01) {
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0 || payment.currency_id !== 'BRL'
+      || Math.round(paidAmount * 100) !== Math.round(reference.plan.price * 100)) {
       throw new Error('Valor ou moeda do pagamento não corresponde ao plano.');
     }
 
     const paymentDate = payment.date_approved ? new Date(payment.date_approved) : new Date();
     if (!Number.isFinite(paymentDate.getTime())) throw new Error('Data de aprovação inválida.');
 
-    const userRef = getAdminDb().collection('users').doc(reference.uid);
-    await getAdminDb().runTransaction(async (transaction) => {
+    const db = getAdminDb();
+    const paymentId = String(payment.id);
+    const receiptRef = db.collection('paymentReceipts').doc(paymentId);
+    const userRef = db.collection('users').doc(reference.uid);
+    await db.runTransaction(async (transaction) => {
+      // Um recibo por pagamento impede repetição mesmo após outras compras.
+      // Recibo e acesso são gravados na mesma transação.
+      const receipt = await transaction.get(receiptRef);
+      if (receipt.exists) return;
       const current = await transaction.get(userRef);
       const previous = current.exists ? current.data() : {};
-      if (previous.lastPaymentId === String(payment.id)) return;
+      const previousReceiptRef = previous.lastPaymentId && previous.lastPaymentId !== paymentId
+        ? db.collection('paymentReceipts').doc(String(previous.lastPaymentId))
+        : null;
+      const previousReceipt = previousReceiptRef ? await transaction.get(previousReceiptRef) : null;
+      if (previousReceiptRef && !previousReceipt.exists) {
+        // Conserva também o último pagamento reconhecido pela versão anterior.
+        transaction.set(previousReceiptRef, { uid: reference.uid, migrated: true });
+      }
+      transaction.set(receiptRef, {
+        uid: reference.uid,
+        planType: reference.planId,
+        amount: paidAmount,
+        approvedAt: paymentDate.toISOString(),
+      });
+      if (previous.lastPaymentId === paymentId) return;
 
       const existingExpiry = new Date(previous.proExpiresAt || '');
       const baseDate = Number.isFinite(existingExpiry.getTime()) && existingExpiry > paymentDate
@@ -86,7 +108,7 @@ export default async function handler(req, res) {
         proExpiresAt: expiresAt.toISOString(),
         aiMessageCount: 0,
         aiLastMessageMonth: new Date().toISOString().slice(0, 7),
-        lastPaymentId: String(payment.id),
+        lastPaymentId: paymentId,
         lastPaymentAt: paymentDate.toISOString(),
       }, { merge: true });
     });

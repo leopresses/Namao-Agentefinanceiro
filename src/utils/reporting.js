@@ -52,6 +52,7 @@ export function getReportExpenses(expenses, { filterMode, currentDate, today = n
 /**
  * Mantém os conceitos separados:
  * - saldo realizado: entradas menos despesas efetivamente pagas;
+ * - saldo disponível do mês: entradas menos despesas pagas e pendentes;
  * - saldo previsto: entradas menos pagamentos, pendências e planejamentos;
  * - categorias: despesas registradas (pagas + a pagar), sem planejamentos.
  */
@@ -92,6 +93,7 @@ export function summarizeReportExpenses(expenses) {
 
   return {
     ...summary,
+    availableBalance: Math.round((summary.incomeTotal - summary.registeredExpenseTotal) * 100) / 100 || 0,
     cashBalance: summary.incomeTotal - summary.paidExpenseTotal,
     projectedBalance: summary.incomeTotal
       - summary.paidExpenseTotal

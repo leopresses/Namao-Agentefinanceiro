@@ -14,17 +14,18 @@ import {
 import { shiftMonth } from '../utils/advancedReports';
 import { usePageState } from '../contexts/NavigationContext';
 import { filterExpenseList } from '../utils/expenseList';
+import { getReportExpenses, summarizeReportExpenses } from '../utils/reporting';
+
+function formatSummaryMoney(value) {
+  return `${value < 0 ? '− ' : ''}R$ ${Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [allExpenses, setAllExpenses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [displayedExpenses, setDisplayedExpenses] = useState([]);
-  const [balance, setBalance] = useState(0);
-  const [toPay, setToPay] = useState(0);
   const [budgets, setBudgets] = useState({});
-  const [categoryTotals, setCategoryTotals] = useState({});
   const [goals, setGoals] = useState([]);
   const [isPro, setIsPro] = useState(getCachedProStatus);
   const handledPaymentResult = useRef(null);
@@ -32,6 +33,11 @@ export default function Dashboard() {
   
   // Date tracking for Month Filter
   const [currentDate, setCurrentDate] = usePageState('month', () => new Date());
+  const displayedExpenses = useMemo(() => getReportExpenses(allExpenses, {
+    filterMode: 'month', currentDate,
+  }), [allExpenses, currentDate]);
+  const summary = useMemo(() => summarizeReportExpenses(displayedExpenses), [displayedExpenses]);
+  const { availableBalance: balance, unpaidExpenseTotal: toPay, categoryTotals } = summary;
   const [search, setSearch] = usePageState('search', '');
   const [categoryFilter, setCategoryFilter] = usePageState('categoryFilter', 'all');
   const [statusFilter, setStatusFilter] = usePageState('statusFilter', 'all');
@@ -78,7 +84,6 @@ export default function Dashboard() {
     if (!paymentResult) return undefined;
     const paymentKey = `${paymentResult}:${location.search}`;
     if (handledPaymentResult.current === paymentKey) return undefined;
-    handledPaymentResult.current = paymentKey;
 
     const params = new URLSearchParams(location.search);
     params.delete('payment');
@@ -86,13 +91,20 @@ export default function Dashboard() {
     window.history.replaceState(window.history.state, '', `${location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`);
 
     let cancelled = false;
+    const notifyOnce = (title, message) => {
+      if (cancelled || handledPaymentResult.current === paymentKey) return;
+      // Só registra como concluído depois de mostrar o resultado. No StrictMode,
+      // um efeito pode ser cancelado antes de a consulta do plano terminar.
+      handledPaymentResult.current = paymentKey;
+      showAlert(title, message);
+    };
     const notifyPaymentResult = async () => {
       if (paymentResult === 'failure') {
-        showAlert('Pagamento não concluído', 'Nenhuma cobrança foi confirmada. Você pode tentar novamente quando quiser.');
+        notifyOnce('Pagamento não concluído', 'Nenhuma cobrança foi confirmada. Você pode tentar novamente quando quiser.');
         return;
       }
       if (paymentResult === 'pending') {
-        showAlert('Pagamento pendente', 'Assim que o Mercado Pago aprovar o pagamento, seu acesso PRO será liberado automaticamente.');
+        notifyOnce('Pagamento pendente', 'Assim que o Mercado Pago aprovar o pagamento, seu acesso PRO será liberado automaticamente.');
         return;
       }
       if (paymentResult !== 'success') return;
@@ -102,6 +114,7 @@ export default function Dashboard() {
       // atualizar a página manualmente após pagar.
       let proData = { isPro: false };
       for (let attempt = 0; attempt < 4; attempt += 1) {
+        if (cancelled) return;
         try {
           proData = await getUserProStatus();
         } catch (error) {
@@ -114,9 +127,9 @@ export default function Dashboard() {
       if (cancelled) return;
       setIsPro(proData.isPro);
       if (proData.isPro) {
-        showAlert('Pagamento aprovado!', 'Seu NaMão PRO já está ativo. Aproveite todos os recursos.');
+        notifyOnce('Pagamento aprovado!', 'Seu NaMão PRO já está ativo. Aproveite todos os recursos.');
       } else {
-        showAlert('Pagamento recebido', 'Estamos confirmando o pagamento. Seu acesso PRO será liberado automaticamente em instantes.');
+        notifyOnce('Pagamento recebido', 'Estamos confirmando o pagamento. Seu acesso PRO será liberado automaticamente em instantes.');
       }
     };
 
@@ -125,43 +138,6 @@ export default function Dashboard() {
       cancelled = true;
     };
   }, [location.pathname, location.search, navigate, showAlert]);
-
-  useEffect(() => {
-    // Filter data by currently selected month and year
-    const month = currentDate.getMonth();
-    const year = currentDate.getFullYear();
-    
-    const filtered = allExpenses.filter(item => {
-      const itemDate = new Date(item.date + 'T12:00:00');
-      return itemDate.getMonth() === month && itemDate.getFullYear() === year;
-    });
-
-    setDisplayedExpenses(filtered);
-    
-    let currentBalance = 0;
-    let currentToPay = 0;
-    let currentTotals = {};
-
-    filtered.forEach(item => {
-      if (item.type === 'income') {
-        currentBalance += item.amount;
-      } else if (item.type === 'expense') {
-        if (item.status === 'paid') {
-          currentBalance -= item.amount;
-        }
-        if (item.status === 'unpaid') {
-          currentToPay += item.amount;
-        }
-        if (item.status !== 'planned') {
-          currentTotals[item.category] = (currentTotals[item.category] || 0) + item.amount;
-        }
-      }
-    });
-
-    setBalance(currentBalance);
-    setToPay(currentToPay);
-    setCategoryTotals(currentTotals);
-  }, [allExpenses, currentDate]);
 
   const changeMonth = (offset) => {
     setCurrentDate((date) => shiftMonth(date, offset));
@@ -298,35 +274,23 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-        <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <h2 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Saldo do Mês</h2>
-          <h1 style={{ 
-            fontSize: balance.toString().length > 7 ? '1.1rem' : '1.4rem', 
-            marginTop: '8px', 
-            color: balance >= 0 ? 'var(--color-emerald-dark)' : 'var(--color-crimson-dark)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            textAlign: 'center'
-          }}>
-            {balance < 0 ? '- R$ ' : 'R$ '}{Math.abs(balance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h1>
-        </div>
-        <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <h2 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Faturas a Pagar</h2>
-          <h1 style={{ 
-            fontSize: toPay.toString().length > 7 ? '1.1rem' : '1.4rem', 
-            marginTop: '8px', 
-            color: 'var(--color-crimson-dark)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            textAlign: 'center'
-          }}>
-            R$ {toPay.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h1>
-        </div>
+      <div className="monthly-summary" aria-live="polite" aria-atomic="true">
+        <section className="glass-card monthly-summary-card" aria-labelledby="monthly-balance-title">
+          <h2 id="monthly-balance-title">Saldo do Mês</h2>
+          <p className={`monthly-summary-value ${balance < 0 ? 'negative' : 'positive'}`}>{formatSummaryMoney(balance)}</p>
+          <p className="monthly-summary-caption">Receitas menos despesas pagas e pendentes</p>
+        </section>
+        <section className="glass-card monthly-summary-card" aria-labelledby="monthly-pending-title">
+          <h2 id="monthly-pending-title">Despesas a Pagar</h2>
+          <p className={`monthly-summary-value ${toPay > 0 ? 'negative' : 'positive'}`}>{formatSummaryMoney(toPay)}</p>
+          <p className="monthly-summary-caption">Pendentes, já descontadas do saldo</p>
+        </section>
+        {summary.plannedExpenseTotal > 0 && (
+          <div className="monthly-planned-summary">
+            <p>Com as planejadas: <strong className={summary.projectedBalance < 0 ? 'negative' : 'positive'}>{formatSummaryMoney(summary.projectedBalance)}</strong></p>
+            <span>Inclui mais {formatSummaryMoney(summary.plannedExpenseTotal)} em despesas planejadas.</span>
+          </div>
+        )}
       </div>
 
       {/* Progresso dos Orçamentos */}

@@ -83,7 +83,9 @@ function buildMonthlySummaries(expenses) {
       + `despesas pagas ${formatMoney(totals.paidExpenses)} | `
       + `pendentes ${formatMoney(totals.unpaidExpenses)} | `
       + `planejadas ${formatMoney(totals.plannedExpenses)} | `
-      + `resultado do mês ${formatMoney(totals.income - totals.paidExpenses)} | `
+      + `saldo realizado (receitas menos pagas) ${formatMoney(totals.income - totals.paidExpenses)} | `
+      + `saldo do mês (receitas menos pagas e pendentes) ${formatMoney(totals.income - totals.paidExpenses - totals.unpaidExpenses)} | `
+      + `previsão com planejadas ${formatMoney(totals.income - totals.paidExpenses - totals.unpaidExpenses - totals.plannedExpenses)} | `
       + `${totals.entries} lançamentos.`
     ));
 }

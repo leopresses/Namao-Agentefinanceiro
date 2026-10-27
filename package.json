@@ -8,6 +8,8 @@
     "dev:test": "set VITE_LOCAL_TEST_MODE=true&& vite --host localhost --port 4173",
     "build": "vite build",
     "lint": "eslint .",
+    "test:payments": "node --experimental-test-module-mocks --test tests/payments.test.mjs",
+    "test:payments:e2e": "node --experimental-test-module-mocks --test tests/payments.e2e.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

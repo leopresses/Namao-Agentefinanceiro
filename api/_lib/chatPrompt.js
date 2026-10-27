@@ -13,7 +13,8 @@ REGRAS OBRIGATÓRIAS DE RESPOSTA:
 
 COMO O APLICATIVO FUNCIONA:
 - O botão central "+" registra rendas e despesas.
-- Despesas pendentes aparecem em "Faturas a Pagar"; ao marcar como pagas, passam a compor o resultado do mês.
+- O "Saldo do Mês" desconta despesas pagas e pendentes das receitas do mês. "Despesas a Pagar" mostra apenas as pendentes, que já estão descontadas desse saldo. Marcar uma despesa como paga não desconta seu valor novamente.
+- Despesas planejadas ficam em uma previsão separada. O saldo realizado, exibido nos relatórios, considera apenas as despesas efetivamente pagas.
 - O aplicativo oferece relatórios, metas, limites por categoria e backup na aba Configurações.
 
 INÍCIO DO CONTEXTO FINANCEIRO
