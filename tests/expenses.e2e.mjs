@@ -51,6 +51,7 @@ for (const width of [390, 1280]) {
       await page.waitForFunction(() => document.querySelectorAll('section[aria-label="Lançamentos do mês"] a[href^="/expense/"]').length === 4);
       assert.equal(await rows.count(), 4);
       await page.getByRole('searchbox', { name: 'Buscar lançamentos' }).fill('CARTAO');
+      await page.getByRole('button', { name: 'Filtrar por categoria', exact: true }).click();
       await page.getByLabel('Categoria', { exact: true }).selectOption('saude');
       await page.getByRole('button', { name: 'Pendentes', exact: true }).click();
       await rows.first().click();
@@ -63,6 +64,7 @@ for (const width of [390, 1280]) {
       await page.getByRole('searchbox').waitFor();
       assert.equal(await page.getByRole('searchbox').inputValue(), 'CARTAO');
       assert.equal(await page.getByLabel('Categoria', { exact: true }).inputValue(), 'saude');
+      assert.equal(await page.getByRole('button', { name: 'Filtrar por categoria', exact: true }).getAttribute('aria-expanded'), 'true');
       assert.equal(await page.getByRole('button', { name: 'Pendentes', exact: true }).getAttribute('aria-pressed'), 'true');
       assert.equal(await rows.count(), 1);
       await page.getByRole('searchbox').fill('não existe');

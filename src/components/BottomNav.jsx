@@ -92,24 +92,12 @@ const BottomNav = () => {
         </div>
       )}
 
-      <nav className="glass" style={{
-        position: 'fixed',
-        bottom: '16px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 'calc(100% - 32px)',
-        maxWidth: '568px',
-        display: 'flex',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        padding: '12px 0',
-        zIndex: 100,
-      }}>
-        <NavLink to="/" aria-label="Dashboard" style={navStyle}>
-          <Home size={24} />
+      <nav className="bottom-nav" aria-label="Navegação principal">
+        <NavLink to="/" aria-label="Dashboard" className="bottom-nav-link">
+          <Home size={22} aria-hidden="true" /><span>Início</span>
         </NavLink>
-        <NavLink to="/report" aria-label="Relatórios" style={navStyle}>
-          <FileText size={24} />
+        <NavLink to="/report" aria-label="Relatórios" className="bottom-nav-link">
+          <FileText size={22} aria-hidden="true" /><span>Resumo</span>
         </NavLink>
         
         <button
@@ -118,40 +106,20 @@ const BottomNav = () => {
           aria-expanded={showMenu}
           aria-controls="mobile-action-menu"
           onClick={toggleMenu}
-          style={{ ...mainActionStyle(showMenu), border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          className={`bottom-nav-add${showMenu ? ' is-open' : ''}`}
         >
-          <Plus size={32} color="#FFF" style={{ transform: showMenu ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s ease' }} />
+          <Plus size={28} aria-hidden="true" />
         </button>
 
-        <NavLink to="/chat" aria-label="NaMão IA" style={navStyle}>
-          <Bot size={24} />
+        <NavLink to="/chat" aria-label="NaMão IA" className="bottom-nav-link">
+          <Bot size={22} aria-hidden="true" /><span>IA</span>
         </NavLink>
-        <NavLink to="/profile" aria-label="Perfil" style={navStyle}>
-          <User size={24} />
+        <NavLink to="/profile" aria-label="Perfil" className="bottom-nav-link">
+          <User size={22} aria-hidden="true" /><span>Perfil</span>
         </NavLink>
       </nav>
     </>
   );
 };
-
-const navStyle = ({ isActive }) => ({
-  color: isActive ? 'var(--color-emerald-light)' : 'var(--text-secondary)',
-  textDecoration: 'none',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  transition: 'color 0.2s',
-  padding: '8px',
-  cursor: 'pointer'
-});
-
-const mainActionStyle = (isOpen) => ({
-  background: isOpen ? 'var(--color-crimson-primary)' : 'var(--color-emerald-primary)',
-  borderRadius: '50%',
-  padding: '12px',
-  marginTop: '-24px', 
-  boxShadow: isOpen ? '0 8px 16px rgba(244, 63, 94, 0.4)' : '0 8px 16px rgba(16, 185, 129, 0.4)',
-  transition: 'all 0.3s ease'
-});
 
 export default BottomNav;

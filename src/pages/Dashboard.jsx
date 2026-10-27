@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Search, Star, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, Star, X, ShoppingCart, Utensils, Car, House, HeartPulse, GraduationCap, Shirt, Sparkles, PawPrint, Tv, PartyPopper, Plane, CreditCard, Receipt, Wallet } from 'lucide-react';
 import { CATEGORIES, getCategory } from '../utils/categories';
 import { getCachedProStatus, getUserProStatus, onAuthChange } from '../services/firebase';
 import { useDialog } from '../contexts/DialogContext';
@@ -15,6 +15,13 @@ import { shiftMonth } from '../utils/advancedReports';
 import { usePageState } from '../contexts/NavigationContext';
 import { filterExpenseList } from '../utils/expenseList';
 import { getReportExpenses, summarizeReportExpenses } from '../utils/reporting';
+import './Dashboard.css';
+
+const categoryIcons = {
+  mercado: ShoppingCart, alimentacao: Utensils, transporte: Car, casa: House,
+  saude: HeartPulse, educacao: GraduationCap, vestuario: Shirt, beleza: Sparkles,
+  pets: PawPrint, assinaturas: Tv, lazer: PartyPopper, viagem: Plane, dividas: CreditCard,
+};
 
 function formatSummaryMoney(value) {
   return `${value < 0 ? '− ' : ''}R$ ${Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -41,10 +48,13 @@ export default function Dashboard() {
   const [search, setSearch] = usePageState('search', '');
   const [categoryFilter, setCategoryFilter] = usePageState('categoryFilter', 'all');
   const [statusFilter, setStatusFilter] = usePageState('statusFilter', 'all');
+  const [categoryFiltersOpen, setCategoryFiltersOpen] = usePageState('categoryFiltersOpen', false);
+  const [showAllExpenses, setShowAllExpenses] = usePageState('showAllExpenses', false);
   const visibleExpenses = useMemo(() => filterExpenseList(displayedExpenses, {
     search, category: categoryFilter, status: statusFilter,
   }), [displayedExpenses, search, categoryFilter, statusFilter]);
   const hasFilters = !!search || categoryFilter !== 'all' || statusFilter !== 'all';
+  const listExpenses = showAllExpenses ? visibleExpenses : visibleExpenses.slice(0, 6);
   const clearFilters = () => {
     setSearch('');
     setCategoryFilter('all');
@@ -210,8 +220,8 @@ export default function Dashboard() {
   }, [budgetAlerts, currentDate, isPro, todayStr, tomorrowStr, urgentItems]);
 
   return (
-    <div className="animate-fade-up" data-navigation-loading={isLoading}>
-      <header className="app-header glass" style={{ borderRadius: '0 0 24px 24px', margin: '-24px -24px 24px -24px' }}>
+    <div className="dashboard animate-fade-up" data-navigation-loading={isLoading}>
+      <header className="app-header dashboard-header">
         <h1 className="app-title" style={{ margin: 0 }}>
           <img src="/logo.png?v=20260901" alt="Logo do NaMão" className="logo-icon" />
           NaMão
@@ -220,42 +230,27 @@ export default function Dashboard() {
 
       {/* Banner PRO (Movido para baixo do cabeçalho para não encavalar com os ícones flutuantes) */}
       {!isPro && (
-        <div 
-          className="animate-pulse-glow"
+        <button
+          type="button"
+          className="dashboard-pro-banner"
           onClick={showProModal}
-          style={{
-            background: 'linear-gradient(135deg, var(--color-emerald-primary) 0%, var(--color-emerald-dark) 100%)',
-            borderRadius: '16px',
-            padding: '16px 20px',
-            marginBottom: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            color: 'white',
-            cursor: 'pointer',
-            boxShadow: '0 8px 24px rgba(16,185,129,0.3)',
-          }}
         >
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-              <Star size={20} fill="currentColor" /> Seja PRO Agora
-            </h3>
-            <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9, marginTop: '4px' }}>IA Ilimitada e Backup Seguro na Nuvem</p>
-          </div>
-          <ChevronRight size={24} />
-        </div>
+          <Star size={18} aria-hidden="true" />
+          <span><strong>Conheça o NaMão PRO</strong><small>IA ilimitada e backup na nuvem</small></span>
+          <ChevronRight size={20} aria-hidden="true" />
+        </button>
       )}
 
       {/* Seletor de Mês */}
-      <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', marginBottom: '24px' }}>
-        <button type="button" aria-label="Mês anterior" onClick={() => changeMonth(-1)} style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
-          <ChevronLeft size={24} />
+      <div className="dashboard-month">
+        <button type="button" aria-label="Mês anterior" onClick={() => changeMonth(-1)}>
+          <ChevronLeft size={22} aria-hidden="true" />
         </button>
-        <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0, fontWeight: '600' }}>
+        <h3>
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h3>
-        <button type="button" aria-label="Próximo mês" onClick={() => changeMonth(1)} style={{ background: 'transparent', color: 'var(--text-secondary)' }}>
-          <ChevronRight size={24} />
+        <button type="button" aria-label="Próximo mês" onClick={() => changeMonth(1)}>
+          <ChevronRight size={22} aria-hidden="true" />
         </button>
       </div>
 
@@ -278,13 +273,16 @@ export default function Dashboard() {
         <section className="glass-card monthly-summary-card" aria-labelledby="monthly-balance-title">
           <h2 id="monthly-balance-title">Saldo do Mês</h2>
           <p className={`monthly-summary-value ${balance < 0 ? 'negative' : 'positive'}`}>{formatSummaryMoney(balance)}</p>
-          <p className="monthly-summary-caption">Receitas menos despesas pagas e pendentes</p>
         </section>
         <section className="glass-card monthly-summary-card" aria-labelledby="monthly-pending-title">
-          <h2 id="monthly-pending-title">Despesas a Pagar</h2>
-          <p className={`monthly-summary-value ${toPay > 0 ? 'negative' : 'positive'}`}>{formatSummaryMoney(toPay)}</p>
-          <p className="monthly-summary-caption">Pendentes, já descontadas do saldo</p>
+          <h2 id="monthly-pending-title" aria-label="Despesas a Pagar">A pagar</h2>
+          <p className="monthly-summary-value">{formatSummaryMoney(toPay)}</p>
         </section>
+        <div className="dashboard-breakdown">
+          <p>Receitas <strong>{formatSummaryMoney(summary.incomeTotal)}</strong></p>
+          <p>Despesas <strong>{formatSummaryMoney(summary.registeredExpenseTotal)}</strong></p>
+        </div>
+        <p className="sr-only">O saldo considera as receitas menos despesas pagas e pendentes. As despesas a pagar já estão descontadas do saldo.</p>
         {summary.plannedExpenseTotal > 0 && (
           <div className="monthly-planned-summary">
             <p>Com as planejadas: <strong className={summary.projectedBalance < 0 ? 'negative' : 'positive'}>{formatSummaryMoney(summary.projectedBalance)}</strong></p>
@@ -380,15 +378,24 @@ export default function Dashboard() {
         </div>
       )}
       
-      <section aria-label="Lançamentos do mês">
-        <h3 style={{ marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Lançamentos</h3>
-        <div className="expense-filters glass-card">
-          <label className="expense-search">
-            <Search size={20} aria-hidden="true" />
-            <input type="search" aria-label="Buscar lançamentos" placeholder="Buscar por descrição" value={search} onChange={(event) => setSearch(event.target.value)} />
-            {search && <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}><X size={18} /></button>}
-          </label>
-          <div className="expense-category-filter">
+      <section className="dashboard-transactions" aria-label="Lançamentos do mês">
+        <div className="dashboard-list-heading">
+          <h3>Lançamentos</h3>
+          <p aria-live="polite">{hasFilters ? `${visibleExpenses.length} de ${displayedExpenses.length}` : displayedExpenses.length} {visibleExpenses.length === 1 ? 'item' : 'itens'}</p>
+        </div>
+        <div className="expense-filters">
+          <div className="dashboard-search-row">
+            <div className="expense-search">
+              <Search size={19} aria-hidden="true" />
+              <input type="search" aria-label="Buscar lançamentos" placeholder="Buscar lançamento" value={search} onChange={(event) => setSearch(event.target.value)} />
+              {search && <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}><X size={18} /></button>}
+            </div>
+            <button type="button" className="dashboard-filter-toggle" aria-label="Filtrar por categoria" aria-controls="dashboard-category-filter" aria-expanded={categoryFiltersOpen} data-active={categoryFilter !== 'all'} onClick={() => setCategoryFiltersOpen((open) => !open)}>
+              <SlidersHorizontal size={20} aria-hidden="true" />
+              {categoryFilter !== 'all' && <span className="dashboard-filter-dot" />}
+            </button>
+          </div>
+          <div id="dashboard-category-filter" className="expense-category-filter" hidden={!categoryFiltersOpen}>
             <label htmlFor="expense-category-filter">Categoria</label>
             <select id="expense-category-filter" className="input-field" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
               <option value="all">Todas as categorias</option>
@@ -400,13 +407,13 @@ export default function Dashboard() {
             {[
               ['all', 'Todos'], ['unpaid', 'Pendentes'], ['paid', 'Pagos / recebidos'], ['planned', 'Planejados'],
             ].map(([value, label]) => (
-              <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)}>{label}</button>
+              <button key={value} type="button" aria-label={label} aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)}>{value === 'paid' ? 'Pagos' : label}</button>
             ))}
           </div>
-          <div className="expense-filter-summary">
-            <p aria-live="polite">{visibleExpenses.length} de {displayedExpenses.length} lançamentos neste mês</p>
-            {hasFilters && <button type="button" onClick={clearFilters}>Limpar filtros</button>}
-          </div>
+          {hasFilters && <div className="expense-filter-summary">
+            <p>{categoryFilter !== 'all' ? (categoryFilter === 'income' ? 'Rendas' : getCategory(categoryFilter).label) : 'Filtros ativos'}</p>
+            <button type="button" onClick={clearFilters}>Limpar filtros</button>
+          </div>}
         </div>
         {visibleExpenses.length === 0 ? (
           <div className="expense-empty">
@@ -414,46 +421,36 @@ export default function Dashboard() {
             {hasFilters && <button type="button" onClick={clearFilters}>Limpar filtros</button>}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {visibleExpenses.map((exp) => {
+          <div className="dashboard-expense-list">
+            {listExpenses.map((exp) => {
               const isIncome = exp.type === 'income';
               const isPaid = exp.status === 'paid';
               const isPlanned = exp.status === 'planned';
               const catInfo = getCategory(exp.category);
               
-              let color = 'var(--color-crimson-primary)'; 
-              if (isIncome) color = 'var(--color-emerald-primary)';
-              else if (isPaid) color = 'var(--color-emerald-dark)';
-              else if (isPlanned) color = '#f59e0b'; // amber for planned
-
-              const sign = isIncome ? '+' : (isPlanned ? '~' : '-');
-              
-              let statusText = '• Pendente';
-              if (isIncome) statusText = '• Renda';
-              else if (isPaid) statusText = '• Pago';
-              else if (isPlanned) statusText = '• Planejado';
+              const CategoryIcon = isIncome ? Wallet : (categoryIcons[exp.category] || Receipt);
+              const sign = isIncome ? '+' : (isPlanned ? '~' : '−');
+              const statusText = isIncome ? (isPaid ? 'Recebido' : 'A receber') : isPaid ? 'Pago' : isPlanned ? 'Planejado' : 'Pendente';
 
               return (
-                <Link to={`/expense/${exp.id}`} key={exp.id} className="glass-card expense-list-item" style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '16px', textDecoration: 'none', color: 'inherit' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', minWidth: 0 }}>
-                    <div style={{ width: '4px', height: '100%', background: color, borderRadius: '4px' }}></div>
-                    <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-                      <h4 style={{ margin: 0, fontSize: '1rem', color: (isPaid || isPlanned) && !isIncome ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: isPaid && !isIncome ? 'line-through' : 'none' }}>
-                        {isIncome ? '💰' : catInfo.icon} {exp.description}
-                      </h4>
-                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        {exp.date.split('-').reverse().join('/')} {statusText}
-                      </p>
-                    </div>
+                <Link to={`/expense/${exp.id}`} key={exp.id} className={`expense-list-item dashboard-expense-row${isIncome ? ' is-income' : ''}${isPlanned ? ' is-planned' : ''}`}>
+                  <span className="dashboard-category-icon"><CategoryIcon size={19} aria-hidden="true" /></span>
+                  <div className="dashboard-expense-description">
+                    <h4>{exp.description}</h4>
+                    <p><time dateTime={exp.date}>{exp.date.split('-').slice(1).reverse().join('/')}</time> · {isIncome ? 'Renda' : catInfo.label}</p>
                   </div>
-                  <div style={{ fontWeight: '600', color: color, flexShrink: 0, whiteSpace: 'nowrap', alignSelf: 'center' }}>
-                    {sign} R$ {exp.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <div className="dashboard-expense-amount">
+                    <span>{sign} {formatSummaryMoney(exp.amount)}</span>
+                    <small>{statusText}</small>
                   </div>
                 </Link>
               );
             })}
           </div>
         )}
+        {visibleExpenses.length > 6 && <button type="button" className="dashboard-show-all" aria-expanded={showAllExpenses} onClick={() => setShowAllExpenses((showAll) => !showAll)}>
+          {showAllExpenses ? 'Mostrar menos' : `Ver todos os ${visibleExpenses.length} lançamentos`}
+        </button>}
       </section>
     </div>
   );

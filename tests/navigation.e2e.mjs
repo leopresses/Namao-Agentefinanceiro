@@ -66,6 +66,8 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       });
       await page.getByRole('button', { name: 'Próximo mês', exact: true }).click();
       await page.locator('a[href^="/expense/"]').first().waitFor();
+      assert.equal(await page.locator('a[href^="/expense/"]').count(), 6);
+      await page.getByRole('button', { name: 'Ver todos os 60 lançamentos', exact: true }).click();
       const heading = await page.locator('h3').filter({ hasText: /\d{4}/ }).first().textContent();
       const row = page.locator('a[href^="/expense/"]').nth(25);
       await row.scrollIntoViewIfNeeded();
@@ -82,6 +84,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       await page.locator('h3').filter({ hasText: heading }).waitFor();
       await ready(page);
       await expectPosition(page, position);
+      assert.equal(await page.locator('a[href^="/expense/"]').count(), 60);
 
       // Criar um lançamento retorna diretamente à lista de onde foi aberto.
       const launchName = viewport.width < 768 ? 'Abrir menu de lançamentos' : 'Lançar';
