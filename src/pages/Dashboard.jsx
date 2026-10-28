@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getExpenses, getBudgets, getGoals } from '../services/db';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, Star, X, ShoppingCart, Utensils, Car, House, HeartPulse, GraduationCap, Shirt, Sparkles, PawPrint, Tv, PartyPopper, Plane, CreditCard, Receipt, Wallet } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, Star, X, ShoppingCart, Utensils, Car, House, HeartPulse, GraduationCap, Shirt, Sparkles, PawPrint, Tv, PartyPopper, Plane, CreditCard, Receipt, Wallet, CircleCheck, Clock3, CalendarDays } from 'lucide-react';
 import { CATEGORIES, getCategory } from '../utils/categories';
 import { getCachedProStatus, getUserProStatus, onAuthChange } from '../services/firebase';
 import { useDialog } from '../contexts/DialogContext';
@@ -429,9 +429,10 @@ export default function Dashboard() {
               const CategoryIcon = isIncome ? Wallet : (categoryIcons[exp.category] || Receipt);
               const sign = isIncome ? '+' : (isPlanned ? '~' : '−');
               const statusText = isIncome ? (isPaid ? 'Recebido' : 'A receber') : isPaid ? 'Pago' : isPlanned ? 'Planejado' : 'Pendente';
+              const StatusIcon = isPlanned ? CalendarDays : isPaid ? CircleCheck : Clock3;
 
               return (
-                <Link to={`/expense/${exp.id}`} key={exp.id} data-tour={exp.type === 'expense' ? 'expense' : undefined} className={`expense-list-item dashboard-expense-row${isIncome ? ' is-income' : ''}${isPlanned ? ' is-planned' : ''}`}>
+                <Link to={`/expense/${exp.id}`} key={exp.id} data-tour={exp.type === 'expense' ? 'expense' : undefined} className={`expense-list-item dashboard-expense-row${isIncome ? ' is-income' : ''}${isPlanned ? ' is-planned' : isPaid ? ' is-paid' : ' is-unpaid'}`}>
                   <span className="dashboard-category-icon"><CategoryIcon size={19} aria-hidden="true" /></span>
                   <div className="dashboard-expense-description">
                     <h4>{exp.description}</h4>
@@ -439,7 +440,7 @@ export default function Dashboard() {
                   </div>
                   <div className="dashboard-expense-amount">
                     <span>{sign} {formatSummaryMoney(exp.amount)}</span>
-                    <small>{statusText}</small>
+                    <small className="dashboard-status-badge"><StatusIcon size={12} aria-hidden="true" />{statusText}</small>
                   </div>
                 </Link>
               );
